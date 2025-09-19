@@ -1,9 +1,14 @@
-.PHONY: help lint deploy
+.PHONY: help lint deploy serve
 
 help:
 	@echo "Available targets:"
+	@echo "  serve  - Start local development server"
 	@echo "  lint   - Lint all Markdown files"
 	@echo "  deploy - Auto-commit and push changes"
+
+serve:
+	@echo "Starting local server at http://localhost:8000/docs"
+	@cd docs && python3 -m http.server 8000
 
 lint:
 	@echo "Linting Markdown files..."

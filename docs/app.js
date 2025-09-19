@@ -11,8 +11,7 @@ class RoomtoneAnalyser {
         this.spectrumCtx = this.spectrumCanvas.getContext('2d');
         this.waveformCtx = this.waveformCanvas.getContext('2d');
 
-        this.startBtn = document.getElementById('startBtn');
-        this.stopBtn = document.getElementById('stopBtn');
+        this.toggleBtn = document.getElementById('toggleBtn');
         this.peakFreqDisplay = document.getElementById('peakFreq');
         this.dominantNoteDisplay = document.getElementById('dominantNote');
 
@@ -36,8 +35,15 @@ class RoomtoneAnalyser {
     }
 
     bindEvents() {
-        this.startBtn.addEventListener('click', () => this.start());
-        this.stopBtn.addEventListener('click', () => this.stop());
+        this.toggleBtn.addEventListener('click', () => this.toggle());
+    }
+
+    toggle() {
+        if (this.isRunning) {
+            this.stop();
+        } else {
+            this.start();
+        }
     }
 
     async start() {
@@ -61,8 +67,9 @@ class RoomtoneAnalyser {
             this.microphone.connect(this.analyser);
 
             this.isRunning = true;
-            this.startBtn.disabled = true;
-            this.stopBtn.disabled = false;
+            this.toggleBtn.textContent = 'Stop Listening';
+            this.toggleBtn.classList.remove('btn-primary');
+            this.toggleBtn.classList.add('btn-secondary');
 
             this.draw();
         } catch (error) {
@@ -87,8 +94,9 @@ class RoomtoneAnalyser {
             this.audioContext.close();
         }
 
-        this.startBtn.disabled = false;
-        this.stopBtn.disabled = true;
+        this.toggleBtn.textContent = 'Start Listening';
+        this.toggleBtn.classList.remove('btn-secondary');
+        this.toggleBtn.classList.add('btn-primary');
 
         this.clearCanvases();
         this.peakFreqDisplay.textContent = '-- Hz';
@@ -217,5 +225,6 @@ class RoomtoneAnalyser {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new RoomtoneAnalyser();
+    const analyser = new RoomtoneAnalyser();
+    setTimeout(() => analyser.start(), 100);
 });

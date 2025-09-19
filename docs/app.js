@@ -206,6 +206,11 @@ class RoomtoneAnalyser {
                 this.smoothedNote = newNote;
             }
 
+            // Detect dominant key from all prominent peaks + room modes
+            const dominantKey = this.detectDominantKey([...prominentPeaks, ...this.roomModes.map(m => ({freq: m.frequency, value: m.strength}))]);
+            const resonanceStrength = this.calculateResonanceStrength(prominentPeaks, this.roomModes);
+
+            this.drawKeyIndicator(width / 2, height / 2, dominantKey, resonanceStrength);
             this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
 
             // Draw secondary prominent peaks
@@ -223,44 +228,6 @@ class RoomtoneAnalyser {
 
     drawPeakIndicator(x, freq, height, displayNote) {
         const note = displayNote || this.frequencyToNote(freq);
-        const width = this.spectrumCanvas.offsetWidth;
-
-        // Epic glowing note overlay
-        this.spectrumCtx.save();
-
-        // Multiple glow layers for that sweet sweet bloom
-        const glowLayers = [
-            { size: 140, alpha: 0.05, color: '255, 40, 80' },
-            { size: 130, alpha: 0.08, color: '255, 60, 100' },
-            { size: 120, alpha: 0.12, color: '255, 80, 120' },
-            { size: 110, alpha: 0.15, color: '255, 100, 140' },
-            { size: 100, alpha: 0.2, color: '255, 120, 160' }
-        ];
-
-        glowLayers.forEach(layer => {
-            this.spectrumCtx.font = `bold ${layer.size}px -apple-system, BlinkMacSystemFont, sans-serif`;
-            this.spectrumCtx.fillStyle = `rgba(${layer.color}, ${layer.alpha})`;
-            this.spectrumCtx.textAlign = 'center';
-            this.spectrumCtx.textBaseline = 'middle';
-            this.spectrumCtx.fillText(note, width / 2, height / 2);
-        });
-
-        // Main note text with gradient
-        const gradient = this.spectrumCtx.createLinearGradient(0, height / 2 - 60, 0, height / 2 + 60);
-        gradient.addColorStop(0, 'rgba(255, 180, 200, 0.9)');
-        gradient.addColorStop(0.5, 'rgba(255, 100, 140, 0.95)');
-        gradient.addColorStop(1, 'rgba(255, 60, 100, 0.9)');
-
-        this.spectrumCtx.font = 'bold 100px -apple-system, BlinkMacSystemFont, sans-serif';
-        this.spectrumCtx.fillStyle = gradient;
-        this.spectrumCtx.fillText(note, width / 2, height / 2);
-
-        // Add some sparkle with a subtle stroke
-        this.spectrumCtx.strokeStyle = 'rgba(255, 200, 220, 0.3)';
-        this.spectrumCtx.lineWidth = 3;
-        this.spectrumCtx.strokeText(note, width / 2, height / 2);
-
-        this.spectrumCtx.restore();
 
         // Pulsing orange indicator line
         const pulse = Math.sin(Date.now() * 0.008) * 0.3 + 0.7;
@@ -599,6 +566,99 @@ class RoomtoneAnalyser {
 
         this.waveformCtx.fillStyle = 'rgb(20, 20, 30)';
         this.waveformCtx.fillRect(0, 0, this.waveformCanvas.width, this.waveformCanvas.height);
+    }
+
+    detectDominantKey(allPeaks) {
+        if (allPeaks.length === 0) return null;
+
+        const noteFrequencies = {
+            'C': [65.41, 130.81, 261.63, 523.25, 1046.50],
+            'C#': [69.30, 138.59, 277.18, 554.37, 1108.73],
+            'D': [73.42, 146.83, 293.66, 587.33, 1174.66],
+            'D#': [77.78, 155.56, 311.13, 622.25, 1244.51],
+            'E': [82.41, 164.81, 329.63, 659.25, 1318.51],
+            'F': [87.31, 174.61, 349.23, 698.46, 1396.91],
+            'F#': [92.50, 185.00, 369.99, 739.99, 1479.98],
+            'G': [98.00, 196.00, 392.00, 783.99, 1567.98],
+            'G#': [103.83, 207.65, 415.30, 830.61, 1661.22],
+            'A': [110.00, 220.00, 440.00, 880.00, 1760.00],
+            'A#': [116.54, 233.08, 466.16, 932.33, 1864.66],
+            'B': [123.47, 246.94, 493.88, 987.77, 1975.53]
+        };
+
+        const keyScores = {};
+
+        Object.keys(noteFrequencies).forEach(key => {
+            keyScores[key] = 0;
+
+            allPeaks.forEach(peak => {
+                const closestNote = noteFrequencies[key].reduce((closest, freq) => {
+                    const currentDistance = Math.abs(Math.log2(peak.freq / freq));
+                    const closestDistance = Math.abs(Math.log2(peak.freq / closest));
+                    return currentDistance < closestDistance ? freq : closest;
+                });
+
+                const distance = Math.abs(Math.log2(peak.freq / closestNote));
+                if (distance < 0.1) {
+                    keyScores[key] += (peak.value || 100) * (1 - distance * 10);
+                }
+            });
+        });
+
+        const bestKey = Object.keys(keyScores).reduce((a, b) =>
+            keyScores[a] > keyScores[b] ? a : b
+        );
+
+        return keyScores[bestKey] > 50 ? bestKey : null;
+    }
+
+    calculateResonanceStrength(peaks, modes) {
+        const peakStrength = peaks.reduce((sum, p) => sum + p.value, 0) / peaks.length || 0;
+        const modeStrength = modes.reduce((sum, m) => sum + m.strength, 0) / modes.length || 0;
+        const combinedStrength = (peakStrength + modeStrength * 1.5) / 255;
+        return Math.min(combinedStrength, 1);
+    }
+
+    drawKeyIndicator(centerX, centerY, key, strength) {
+        if (!key || strength < 0.1) return;
+
+        this.spectrumCtx.save();
+
+        const baseOpacity = 0.1 + strength * 0.6;
+        const pulseIntensity = strength * 0.3;
+        const pulse = Math.sin(Date.now() * 0.004) * pulseIntensity + (1 - pulseIntensity);
+        const finalOpacity = baseOpacity * pulse;
+
+        const glowLayers = [
+            { size: 160, alpha: finalOpacity * 0.05, color: '255, 40, 80' },
+            { size: 150, alpha: finalOpacity * 0.08, color: '255, 60, 100' },
+            { size: 140, alpha: finalOpacity * 0.12, color: '255, 80, 120' },
+            { size: 130, alpha: finalOpacity * 0.15, color: '255, 100, 140' },
+            { size: 120, alpha: finalOpacity * 0.2, color: '255, 120, 160' }
+        ];
+
+        glowLayers.forEach(layer => {
+            this.spectrumCtx.font = `bold ${layer.size}px -apple-system, BlinkMacSystemFont, sans-serif`;
+            this.spectrumCtx.fillStyle = `rgba(${layer.color}, ${layer.alpha})`;
+            this.spectrumCtx.textAlign = 'center';
+            this.spectrumCtx.textBaseline = 'middle';
+            this.spectrumCtx.fillText(key, centerX, centerY);
+        });
+
+        const gradient = this.spectrumCtx.createLinearGradient(0, centerY - 60, 0, centerY + 60);
+        gradient.addColorStop(0, `rgba(255, 180, 200, ${finalOpacity * 0.9})`);
+        gradient.addColorStop(0.5, `rgba(255, 100, 140, ${finalOpacity * 0.95})`);
+        gradient.addColorStop(1, `rgba(255, 60, 100, ${finalOpacity * 0.9})`);
+
+        this.spectrumCtx.font = 'bold 120px -apple-system, BlinkMacSystemFont, sans-serif';
+        this.spectrumCtx.fillStyle = gradient;
+        this.spectrumCtx.fillText(key, centerX, centerY);
+
+        this.spectrumCtx.strokeStyle = `rgba(255, 200, 220, ${finalOpacity * 0.4})`;
+        this.spectrumCtx.lineWidth = 3;
+        this.spectrumCtx.strokeText(key, centerX, centerY);
+
+        this.spectrumCtx.restore();
     }
 }
 

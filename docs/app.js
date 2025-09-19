@@ -21,6 +21,12 @@ class RoomtoneAnalyser {
         this.currentNote = '';
         this.smoothedNote = '';
 
+        // Room mode detection
+        this.frequencyHistory = new Map();
+        this.roomModes = [];
+        this.modeDetectionStartTime = Date.now();
+        this.minDetectionTime = 10000; // 10 seconds minimum
+
         this.setupCanvases();
         this.bindEvents();
     }
@@ -138,10 +144,16 @@ class RoomtoneAnalyser {
         const logMin = Math.log10(minFreq);
         const logMax = Math.log10(maxFreq);
 
+        // Slowly cycling gradient colours
+        const time = Date.now() * 0.00005;
+        const hue1 = (Math.sin(time) * 60 + 200) % 360;
+        const hue2 = (Math.sin(time + 2) * 60 + 120) % 360;
+        const hue3 = (Math.sin(time + 4) * 60 + 40) % 360;
+
         const gradient = this.spectrumCtx.createLinearGradient(0, height, 0, 0);
-        gradient.addColorStop(0, '#4a9eff');
-        gradient.addColorStop(0.5, '#00ff88');
-        gradient.addColorStop(1, '#ffaa00');
+        gradient.addColorStop(0, `hsl(${hue1}, 80%, 60%)`);
+        gradient.addColorStop(0.5, `hsl(${hue2}, 90%, 65%)`);
+        gradient.addColorStop(1, `hsl(${hue3}, 85%, 70%)`);
 
         const barWidth = 2;
         const peaks = [];
@@ -200,7 +212,13 @@ class RoomtoneAnalyser {
             prominentPeaks.slice(1, 4).forEach(peak => {
                 this.drawSecondaryPeak(peak.x, peak.freq, height, peak.value);
             });
+
+            // Track frequencies for room mode detection
+            this.trackFrequencyHistory(prominentPeaks);
         }
+
+        // Draw detected room modes
+        this.drawRoomModes();
     }
 
     drawPeakIndicator(x, freq, height, displayNote) {
@@ -316,6 +334,114 @@ class RoomtoneAnalyser {
         this.spectrumCtx.fillText(note, x, height * 0.15);
 
         this.spectrumCtx.lineWidth = 1;
+    }
+
+    trackFrequencyHistory(peaks) {
+        const now = Date.now();
+        const timeWindow = 30000; // 30 second window
+
+        // Add current peaks to history
+        peaks.forEach(peak => {
+            const freqKey = Math.round(peak.freq / 5) * 5; // Group by 5Hz bins
+
+            if (!this.frequencyHistory.has(freqKey)) {
+                this.frequencyHistory.set(freqKey, []);
+            }
+
+            this.frequencyHistory.get(freqKey).push({
+                time: now,
+                amplitude: peak.value,
+                freq: peak.freq
+            });
+        });
+
+        // Clean old history and detect persistent modes
+        this.roomModes = [];
+
+        for (const [freqKey, history] of this.frequencyHistory.entries()) {
+            // Remove old entries
+            const recentHistory = history.filter(entry => now - entry.time < timeWindow);
+            this.frequencyHistory.set(freqKey, recentHistory);
+
+            // Check if this frequency qualifies as a room mode
+            if (recentHistory.length > 20 && now - this.modeDetectionStartTime > this.minDetectionTime) {
+                const avgAmplitude = recentHistory.reduce((sum, entry) => sum + entry.amplitude, 0) / recentHistory.length;
+                const consistency = recentHistory.length / (timeWindow / 1000); // detections per second
+
+                if (avgAmplitude > 40 && consistency > 0.5) {
+                    const avgFreq = recentHistory.reduce((sum, entry) => sum + entry.freq, 0) / recentHistory.length;
+                    this.roomModes.push({
+                        frequency: avgFreq,
+                        strength: avgAmplitude,
+                        consistency: consistency,
+                        note: this.frequencyToNote(avgFreq)
+                    });
+                }
+            }
+        }
+
+        // Sort room modes by strength
+        this.roomModes.sort((a, b) => b.strength - a.strength);
+        this.roomModes = this.roomModes.slice(0, 3); // Keep top 3
+    }
+
+    drawRoomModes() {
+        const width = this.spectrumCanvas.offsetWidth;
+        const height = this.spectrumCanvas.offsetHeight;
+        const nyquist = this.audioContext.sampleRate / 2;
+        const minFreq = 20;
+        const logMin = Math.log10(minFreq);
+        const logMax = Math.log10(nyquist);
+
+        this.roomModes.forEach((mode, index) => {
+            const logFreq = Math.log10(mode.frequency);
+            const x = ((logFreq - logMin) / (logMax - logMin)) * width;
+
+            // Pulsing room mode indicator
+            const pulse = Math.sin(Date.now() * 0.003 + index) * 0.3 + 0.7;
+            const alpha = (mode.strength / 255) * pulse * 0.8;
+
+            // Thick vertical line for room mode
+            this.spectrumCtx.strokeStyle = `rgba(255, 50, 150, ${alpha})`;
+            this.spectrumCtx.lineWidth = 4;
+            this.spectrumCtx.setLineDash([]);
+            this.spectrumCtx.beginPath();
+            this.spectrumCtx.moveTo(x, 0);
+            this.spectrumCtx.lineTo(x, height);
+            this.spectrumCtx.stroke();
+
+            // Room mode label
+            this.spectrumCtx.font = 'bold 12px monospace';
+            this.spectrumCtx.fillStyle = `rgba(255, 100, 200, ${alpha})`;
+            this.spectrumCtx.textAlign = 'center';
+            this.spectrumCtx.shadowColor = 'rgba(255, 50, 150, 0.5)';
+            this.spectrumCtx.shadowBlur = 4;
+
+            const label = `${mode.note} ROOM MODE`;
+            this.spectrumCtx.fillText(label, x, height - 40 - (index * 20));
+
+            this.spectrumCtx.shadowBlur = 0;
+            this.spectrumCtx.lineWidth = 1;
+        });
+    }
+
+    calculateRoomDimensions() {
+        if (this.roomModes.length < 2) return null;
+
+        const speedOfSound = 343; // m/s at 20°C
+        const dimensions = [];
+
+        this.roomModes.forEach(mode => {
+            // Assume fundamental room modes (half wavelength = dimension)
+            const wavelength = speedOfSound / mode.frequency;
+            const dimension = wavelength / 2;
+            dimensions.push(dimension);
+        });
+
+        return {
+            possibleDimensions: dimensions.map(d => d.toFixed(2) + 'm'),
+            roomModes: this.roomModes
+        };
     }
 
     drawNoteLabels() {

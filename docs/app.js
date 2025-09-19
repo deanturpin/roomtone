@@ -233,11 +233,11 @@ class RoomtoneAnalyser {
             const pianoGain = this.audioContext.createGain();
 
             oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-            oscillator.type = 'sine';
+            oscillator.type = 'triangle'; // Softer, more musical tone
 
-            // Much louder for testing, quick attack
+            // Gentler attack and lower volume
             pianoGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-            pianoGain.gain.exponentialRampToValueAtTime(0.6, this.audioContext.currentTime + 0.01); // Even louder!
+            pianoGain.gain.linearRampToValueAtTime(0.08, this.audioContext.currentTime + 0.05); // Slower, gentler attack
 
             oscillator.connect(pianoGain);
 

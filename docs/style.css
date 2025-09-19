@@ -145,10 +145,10 @@ button:disabled {
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    height: 40px;
+    height: 60px;
     background: rgba(20, 20, 30, 0.9);
-    padding: 10px;
-    border-radius: 8px;
+    padding: 15px;
+    border-radius: 12px;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
     z-index: 100;
 }
@@ -166,31 +166,31 @@ button:disabled {
 }
 
 .piano-key.white {
-    width: 20px;
-    height: 40px;
+    width: 28px;
+    height: 60px;
     background: #fff;
     border: 1px solid #ccc;
-    border-radius: 0 0 3px 3px;
+    border-radius: 0 0 4px 4px;
     color: #333;
     z-index: 1;
 }
 
 .piano-key.black {
-    width: 14px;
-    height: 26px;
+    width: 20px;
+    height: 40px;
     background: #333;
     border: 1px solid #111;
-    border-radius: 0 0 2px 2px;
+    border-radius: 0 0 3px 3px;
     color: #fff;
     position: absolute;
     z-index: 2;
 }
 
-.piano-key.black[data-note="C#4"] { left: 13px; }
-.piano-key.black[data-note="D#4"] { left: 33px; }
-.piano-key.black[data-note="F#4"] { left: 73px; }
-.piano-key.black[data-note="G#4"] { left: 93px; }
-.piano-key.black[data-note="A#4"] { left: 113px; }
+.piano-key.black[data-note="C#4"] { left: 19px; }
+.piano-key.black[data-note="D#4"] { left: 47px; }
+.piano-key.black[data-note="F#4"] { left: 103px; }
+.piano-key.black[data-note="G#4"] { left: 131px; }
+.piano-key.black[data-note="A#4"] { left: 159px; }
 
 .piano-key.white:hover {
     background: #f0f0f0;

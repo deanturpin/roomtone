@@ -7,9 +7,7 @@ class RoomtoneAnalyser {
         this.isRunning = false;
 
         this.spectrumCanvas = document.getElementById('spectrum');
-        this.waveformCanvas = document.getElementById('waveform');
         this.spectrumCtx = this.spectrumCanvas.getContext('2d');
-        this.waveformCtx = this.waveformCanvas.getContext('2d');
 
         this.toggleBtn = document.getElementById('toggleBtn');
         this.muteBtn = document.getElementById('muteBtn');
@@ -17,8 +15,7 @@ class RoomtoneAnalyser {
         this.piano = document.getElementById('piano');
         this.activePianoTones = new Map();
 
-        this.activeNotesDisplay = document.getElementById('activeNotes');
-        this.activeChordDisplay = document.getElementById('activeChord');
+        // Note: activeNotes and activeChord elements removed
 
         this.smoothedPeakFreq = 0;
         this.smoothedPeakX = 0;
@@ -49,10 +46,6 @@ class RoomtoneAnalyser {
             this.spectrumCanvas.width = this.spectrumCanvas.offsetWidth * window.devicePixelRatio;
             this.spectrumCanvas.height = this.spectrumCanvas.offsetHeight * window.devicePixelRatio;
             this.spectrumCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-            this.waveformCanvas.width = this.waveformCanvas.offsetWidth * window.devicePixelRatio;
-            this.waveformCanvas.height = this.waveformCanvas.offsetHeight * window.devicePixelRatio;
-            this.waveformCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
         };
 
         resize();
@@ -248,12 +241,8 @@ class RoomtoneAnalyser {
 
             oscillator.connect(pianoGain);
 
-            // Connect directly to destination for testing, bypassing mute and reverb
-            if (this.isMuted) {
-                pianoGain.connect(this.audioContext.destination);
-            } else {
-                pianoGain.connect(this.gainNode);
-            }
+            // Always connect piano directly to destination to avoid feedback
+            pianoGain.connect(this.audioContext.destination);
 
             oscillator.start();
             console.log(`Playing piano key: ${note} at ${frequency}Hz`);
@@ -300,10 +289,8 @@ class RoomtoneAnalyser {
         const waveformData = new Uint8Array(this.analyser.frequencyBinCount);
 
         this.analyser.getByteFrequencyData(frequencyData);
-        this.analyser.getByteTimeDomainData(waveformData);
 
         this.drawSpectrum(frequencyData);
-        this.drawWaveform(waveformData);
 
         this.animationId = requestAnimationFrame(() => this.draw());
     }
@@ -387,8 +374,7 @@ class RoomtoneAnalyser {
         // Track and generate tones for settled frequencies (disabled for now)
         // this.trackSettledFrequencies(prominentPeaks);
 
-        // Update displays for active notes and chords
-        this.updateActiveNotesDisplay();
+        // Note: Active notes display removed
 
         // Generate tones based on detected key (disabled for now)
         // this.updateToneGeneration(dominantKey, resonanceStrength);

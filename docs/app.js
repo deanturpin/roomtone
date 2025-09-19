@@ -126,23 +126,29 @@ class RoomtoneAnalyser {
         this.spectrumCtx.fillStyle = 'rgb(20, 20, 30)';
         this.spectrumCtx.fillRect(0, 0, width, height);
 
-        const barWidth = width / data.length * 2.5;
-        let x = 0;
+        const nyquist = this.audioContext.sampleRate / 2;
+        const minFreq = 20;
+        const maxFreq = nyquist;
+        const logMin = Math.log10(minFreq);
+        const logMax = Math.log10(maxFreq);
 
         const gradient = this.spectrumCtx.createLinearGradient(0, height, 0, 0);
         gradient.addColorStop(0, '#4a9eff');
         gradient.addColorStop(0.5, '#00ff88');
         gradient.addColorStop(1, '#ffaa00');
 
-        for (let i = 0; i < data.length; i++) {
-            const barHeight = (data[i] / 255) * height * 0.8;
+        const barWidth = 2;
 
-            this.spectrumCtx.fillStyle = gradient;
-            this.spectrumCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+        for (let x = 0; x < width; x += barWidth) {
+            const logFreq = logMin + (x / width) * (logMax - logMin);
+            const freq = Math.pow(10, logFreq);
+            const bin = Math.floor((freq / nyquist) * data.length);
 
-            x += barWidth + 1;
-
-            if (x > width) break;
+            if (bin < data.length) {
+                const barHeight = (data[bin] / 255) * height * 0.8;
+                this.spectrumCtx.fillStyle = gradient;
+                this.spectrumCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+            }
         }
 
         this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
@@ -174,9 +180,15 @@ class RoomtoneAnalyser {
         this.spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         this.spectrumCtx.textAlign = 'center';
 
+        const minFreq = 20;
+        const maxFreq = nyquist;
+        const logMin = Math.log10(minFreq);
+        const logMax = Math.log10(maxFreq);
+
         noteFrequencies.forEach(({ note, freq }) => {
-            if (freq < nyquist) {
-                const x = (freq / nyquist) * width;
+            if (freq >= minFreq && freq < nyquist) {
+                const logFreq = Math.log10(freq);
+                const x = ((logFreq - logMin) / (logMax - logMin)) * width;
 
                 this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
                 this.spectrumCtx.setLineDash([2, 4]);

@@ -2,7 +2,7 @@
 
 🎵 **[Try it live](http://turpin.dev/roomtone/)**
 
-Generative music app that analyses room acoustics and creates ambient soundscapes from environmental audio.
+Real-time frequency analyser with musical key detection and bass tone generation. Visualises the acoustic spectrum of your space and responds with complementary bass frequencies.
 
 ## Concept
 
@@ -10,109 +10,69 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 
 ## Core Features
 
-### Room Analysis
+### Real-time Analysis
+- FFT-based frequency spectrum analysis with logarithmic scaling
+- Peak frequency detection with musical note identification
+- Multi-peak detection for capturing harmonics and overtones
+- Room mode detection through frequency persistence tracking
+- Musical key detection using harmonic scoring algorithms
 
-- Detect resonant frequencies through FFT analysis of ambient noise
-- Identify persistent peaks in the frequency spectrum
-- Calculate room modes from acoustic response
-- Track dominant frequencies over time
+### Visual Display
+- Live frequency spectrum visualiser with gradient colouring
+- Waveform display showing time-domain audio
+- 500Hz frequency separator line dividing generation/analysis zones
+- Peak frequency highlighting with smooth tracking
+- Dominant musical key display with confidence-based opacity
 
-### Audio Processing
-
-- Real-time microphone capture with permission handling
-- Feedback prevention through internal loop subtraction
-- FIFO buffer for evolving soundscapes
-- Loop detection in ambient noise
-- Granular synthesis from captured fragments
-
-### Generative Engine
-
-- Use room resonances as root notes/harmonics
-- Musical scale quantisation
-- Construct loops from environmental sounds
-- Gradual evolution through buffer cycling
-- Two-phase approach:
-  1. Pure environmental sound processing
-  2. Musical hints (key, tempo, mode)
+### Tone Generation
+- Bass frequency generation below 500Hz to prevent feedback
+- Musical key-based tone selection using root and fifth frequencies
+- Automatic volume control with smooth ramping
+- Real-time response to detected dominant keys
+- Immediate stop functionality for feedback prevention
 
 ## Technical Implementation
 
 ### Web Audio API Stack
 
 - **Audio Input**: `getUserMedia()` for microphone access
-- **Analysis**: `AnalyserNode` for FFT/frequency analysis
-- **Processing**: `ScriptProcessorNode` or `AudioWorklet` for custom DSP
-- **Synthesis**: `OscillatorNode`, `GainNode` for tone generation
-- **Effects**: `ConvolverNode`, `DelayNode`, `BiquadFilterNode`
-- **Output**: `AudioContext.destination`
+- **Analysis**: `AnalyserNode` with 2048 FFT size for frequency analysis
+- **Synthesis**: `OscillatorNode` and `GainNode` for bass tone generation
+- **Output**: `AudioContext.destination` with proper gain control
+- **Canvas**: 2D context for real-time frequency visualisation
 
-### Libraries
+### Key Technical Features
 
-- **Tone.js**: High-level audio framework
-- **p5.js**: Frequency spectrum visualisation
-- **Meyda**: Audio feature extraction
+- Logarithmic frequency and amplitude scaling for musical representation
+- Harmonic scoring algorithm for musical key detection
+- Frequency domain separation (500Hz threshold) to prevent feedback
+- Smooth peak tracking with configurable smoothing factors
+- Real-time canvas rendering optimised for 60fps display
 
 ### Deployment
 
-- Static HTML/JS (works anywhere)
-- GitHub Pages / Vercel hosting
-- PWA manifest for mobile installation
+- Static HTML/JS hosted on GitHub Pages
+- Local development server via `make serve`
+- Auto-deployment via `make deploy`
 - HTTPS required for microphone access
 
-## Implementation Steps
+## Current Implementation
 
-### Phase 1: Room Analysis
+The application is built around a single `RoomtoneAnalyser` class that handles:
 
-```javascript
-// Basic room resonance detector
-const audioContext = new AudioContext();
-const analyser = audioContext.createAnalyser();
-analyser.fftSize = 2048;
+1. **Audio Setup**: Microphone access and Web Audio context creation
+2. **Real-time Analysis**: Continuous FFT analysis with peak detection
+3. **Visual Rendering**: Canvas-based spectrum and waveform display
+4. **Musical Intelligence**: Key detection and harmonic analysis
+5. **Tone Generation**: Bass frequency synthesis below 500Hz
 
-navigator.mediaDevices.getUserMedia({ audio: true })
-  .then(stream => {
-    const source = audioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
+### Key Methods
 
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    function detectResonances() {
-      analyser.getByteFrequencyData(dataArray);
-      // Find peaks in frequency spectrum
-      // Track persistent frequencies over time
-      requestAnimationFrame(detectResonances);
-    }
-    detectResonances();
-  });
-```
-
-### Phase 2: Audio Capture & Loop Buffer
-
-```javascript
-// Circular buffer for evolving soundscape
-class LoopBuffer {
-  constructor(duration, sampleRate) {
-    this.buffer = new Float32Array(duration * sampleRate);
-    this.writeIndex = 0;
-  }
-
-  write(samples) {
-    // Add new samples, subtract old playback (feedback prevention)
-  }
-
-  read() {
-    // Return current loop for playback
-  }
-}
-```
-
-### Phase 3: Generative Processing
-
-- Detect interesting audio events (transients, tonal content)
-- Slice and reorganise captured audio
-- Apply musical quantisation based on room's resonant frequencies
-- Layer multiple loops at different time scales
+- `setupAudio()`: Initialises microphone and audio analysis chain
+- `analyse()`: Main analysis loop with FFT processing and peak detection
+- `detectMusicalKey()`: Harmonic scoring algorithm for key identification
+- `updateToneGeneration()`: Bass tone synthesis based on detected keys
+- `drawSpectrum()`: Real-time frequency visualisation with musical annotations
 
 ## UI Design
 

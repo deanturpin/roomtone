@@ -12,8 +12,6 @@ class RoomtoneAnalyser {
         this.waveformCtx = this.waveformCanvas.getContext('2d');
 
         this.toggleBtn = document.getElementById('toggleBtn');
-        this.peakFreqDisplay = document.getElementById('peakFreq');
-        this.dominantNoteDisplay = document.getElementById('dominantNote');
 
         this.smoothedPeakFreq = 0;
         this.smoothedPeakX = 0;
@@ -26,6 +24,11 @@ class RoomtoneAnalyser {
         this.roomModes = [];
         this.modeDetectionStartTime = Date.now();
         this.minDetectionTime = 10000; // 10 seconds minimum
+
+        // Tone generation
+        this.oscillators = [];
+        this.gainNode = null;
+        this.currentToneKey = null;
 
         this.setupCanvases();
         this.bindEvents();
@@ -83,6 +86,9 @@ class RoomtoneAnalyser {
 
             this.microphone.connect(this.analyser);
 
+            // Set up tone generation
+            this.setupToneGeneration();
+
             this.isRunning = true;
             this.toggleBtn.textContent = 'Stop Listening';
             this.toggleBtn.classList.remove('btn-primary');
@@ -113,6 +119,7 @@ class RoomtoneAnalyser {
         }
 
         if (this.audioContext) {
+            this.stopToneGeneration();
             this.audioContext.close();
         }
 
@@ -121,8 +128,6 @@ class RoomtoneAnalyser {
         this.toggleBtn.classList.add('btn-primary');
 
         this.clearCanvases();
-        this.peakFreqDisplay.textContent = '-- Hz';
-        this.dominantNoteDisplay.textContent = '--';
     }
 
     draw() {
@@ -136,7 +141,6 @@ class RoomtoneAnalyser {
 
         this.drawSpectrum(frequencyData);
         this.drawWaveform(waveformData);
-        this.updateFrequencyInfo(frequencyData);
 
         this.animationId = requestAnimationFrame(() => this.draw());
     }
@@ -180,8 +184,14 @@ class RoomtoneAnalyser {
                 this.spectrumCtx.fillStyle = gradient;
                 this.spectrumCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
 
+                // Analyze full spectrum but mark generation vs analysis zones
                 if (data[bin] > 30 && freq > 80 && freq < 4000) {
-                    peaks.push({ value: data[bin], freq: freq, x: x });
+                    peaks.push({
+                        value: data[bin],
+                        freq: freq,
+                        x: x,
+                        isGenerationZone: freq < 500
+                    });
                 }
             }
         }
@@ -196,6 +206,22 @@ class RoomtoneAnalyser {
         this.spectrumCtx.stroke();
 
         this.drawNoteLabels();
+        this.drawFrequencySeparator();
+
+        // Always detect dominant key from all available data
+        const analysisZonePeaks = prominentPeaks.map(peak => ({
+            ...peak,
+            value: peak.isGenerationZone ? peak.value * 0.3 : peak.value * 1.5
+        }));
+
+        const dominantKey = this.detectDominantKey([...analysisZonePeaks, ...this.roomModes.map(m => ({freq: m.frequency, value: m.strength}))]);
+        const resonanceStrength = this.calculateResonanceStrength(prominentPeaks, this.roomModes);
+
+        // Draw the dominant key in the center
+        this.drawKeyIndicator(width / 2, height / 2, dominantKey, resonanceStrength);
+
+        // Generate tones based on detected key
+        this.updateToneGeneration(dominantKey, resonanceStrength);
 
         if (prominentPeaks.length > 0) {
             // Use the strongest prominent peak for the main indicator
@@ -216,11 +242,7 @@ class RoomtoneAnalyser {
                 this.smoothedNote = newNote;
             }
 
-            // Detect dominant key from all prominent peaks + room modes
-            const dominantKey = this.detectDominantKey([...prominentPeaks, ...this.roomModes.map(m => ({freq: m.frequency, value: m.strength}))]);
-            const resonanceStrength = this.calculateResonanceStrength(prominentPeaks, this.roomModes);
-
-            this.drawKeyIndicator(width / 2, height / 2, dominantKey, resonanceStrength);
+            // Draw peak indicator line (not in center)
             this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
 
             // Draw secondary prominent peaks
@@ -258,7 +280,7 @@ class RoomtoneAnalyser {
         this.spectrumCtx.fillStyle = '#ffdd44';
         this.spectrumCtx.textAlign = 'center';
         this.spectrumCtx.textBaseline = 'alphabetic';
-        this.spectrumCtx.fillText(labelText, x, 25);
+        this.spectrumCtx.fillText(labelText, x, 70);
 
         this.spectrumCtx.shadowBlur = 0;
         this.spectrumCtx.lineWidth = 1;
@@ -499,6 +521,46 @@ class RoomtoneAnalyser {
         });
     }
 
+    drawFrequencySeparator() {
+        const width = this.spectrumCanvas.offsetWidth;
+        const height = this.spectrumCanvas.offsetHeight;
+        const nyquist = this.audioContext.sampleRate / 2;
+        const minFreq = 20;
+        const logMin = Math.log10(minFreq);
+        const logMax = Math.log10(nyquist);
+
+        // Calculate 500Hz position on log scale
+        const separatorFreq = 500;
+        const logSeparator = Math.log10(separatorFreq);
+        const x = ((logSeparator - logMin) / (logMax - logMin)) * width;
+
+        // Draw dramatic separator line
+        this.spectrumCtx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+        this.spectrumCtx.lineWidth = 3;
+        this.spectrumCtx.setLineDash([10, 10]);
+        this.spectrumCtx.beginPath();
+        this.spectrumCtx.moveTo(x, 0);
+        this.spectrumCtx.lineTo(x, height);
+        this.spectrumCtx.stroke();
+        this.spectrumCtx.setLineDash([]);
+
+        // Add labels
+        this.spectrumCtx.font = 'bold 14px monospace';
+        this.spectrumCtx.fillStyle = 'rgba(255, 255, 0, 0.9)';
+        this.spectrumCtx.textAlign = 'center';
+        this.spectrumCtx.shadowColor = 'rgba(255, 255, 0, 0.5)';
+        this.spectrumCtx.shadowBlur = 6;
+
+        this.spectrumCtx.fillText('GENERATE', x / 2, 30);
+        this.spectrumCtx.fillText('<500Hz', x / 2, 50);
+
+        this.spectrumCtx.fillText('ANALYZE', x + (width - x) / 2, 30);
+        this.spectrumCtx.fillText('>500Hz', x + (width - x) / 2, 50);
+
+        this.spectrumCtx.shadowBlur = 0;
+        this.spectrumCtx.lineWidth = 1;
+    }
+
     drawWaveform(data) {
         const width = this.waveformCanvas.offsetWidth;
         const height = this.waveformCanvas.offsetHeight;
@@ -537,25 +599,6 @@ class RoomtoneAnalyser {
         this.waveformCtx.stroke();
     }
 
-    updateFrequencyInfo(data) {
-        let maxValue = 0;
-        let maxIndex = 0;
-
-        for (let i = 0; i < data.length / 2; i++) {
-            if (data[i] > maxValue) {
-                maxValue = data[i];
-                maxIndex = i;
-            }
-        }
-
-        const nyquist = this.audioContext.sampleRate / 2;
-        const frequency = (maxIndex / data.length) * nyquist * 2;
-
-        if (maxValue > 50) {
-            this.peakFreqDisplay.textContent = `${frequency.toFixed(1)} Hz`;
-            this.dominantNoteDisplay.textContent = this.frequencyToNote(frequency);
-        }
-    }
 
     frequencyToNote(freq) {
         const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -670,8 +713,99 @@ class RoomtoneAnalyser {
 
         this.spectrumCtx.restore();
     }
+
+    setupToneGeneration() {
+        // Create gain node for volume control
+        this.gainNode = this.audioContext.createGain();
+        this.gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime); // Start quiet
+        this.gainNode.connect(this.audioContext.destination);
+    }
+
+    updateToneGeneration(key, strength) {
+        if (!key || strength < 0.2) {
+            // Not enough signal strength, fade out
+            if (this.gainNode) {
+                this.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
+            }
+            return;
+        }
+
+        // Only update if key changed significantly
+        if (key !== this.currentToneKey) {
+            this.currentToneKey = key;
+            this.stopToneGeneration();
+            this.startToneGeneration(key, strength);
+        } else {
+            // Update volume based on strength
+            if (this.gainNode) {
+                const targetVolume = Math.min(strength * 0.3, 0.2); // Keep it subtle
+                this.gainNode.gain.exponentialRampToValueAtTime(targetVolume, this.audioContext.currentTime + 0.1);
+            }
+        }
+    }
+
+    startToneGeneration(key, strength) {
+        if (!this.audioContext || !this.gainNode) return;
+
+        // Get bass frequencies for this key (below 500Hz)
+        const bassFrequencies = this.getKeyBassFrequencies(key);
+
+        bassFrequencies.forEach((freq, index) => {
+            const oscillator = this.audioContext.createOscillator();
+            const oscGain = this.audioContext.createGain();
+
+            // Different waveforms for richness
+            const waveforms = ['sine', 'triangle', 'sawtooth'];
+            oscillator.type = waveforms[index % waveforms.length];
+
+            oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+
+            // Individual oscillator gain
+            const volume = (index === 0) ? 0.6 : 0.3; // Root note louder
+            oscGain.gain.setValueAtTime(volume, this.audioContext.currentTime);
+
+            oscillator.connect(oscGain);
+            oscGain.connect(this.gainNode);
+
+            oscillator.start();
+            this.oscillators.push(oscillator);
+        });
+    }
+
+    stopToneGeneration() {
+        this.oscillators.forEach(osc => {
+            try {
+                osc.stop();
+            } catch (e) {
+                // Oscillator already stopped
+            }
+        });
+        this.oscillators = [];
+        this.currentToneKey = null;
+    }
+
+    getKeyBassFrequencies(key) {
+        // Map each key to bass frequencies (all below 500Hz)
+        const keyFrequencies = {
+            'C': [130.81, 261.63], // C3, C4
+            'C#': [138.59, 277.18],
+            'D': [146.83, 293.66],
+            'D#': [155.56, 311.13],
+            'E': [164.81, 329.63],
+            'F': [174.61, 349.23],
+            'F#': [185.00, 369.99],
+            'G': [196.00, 392.00],
+            'G#': [207.65, 415.30],
+            'A': [220.00, 440.00],
+            'A#': [233.08, 466.16],
+            'B': [246.94, 493.88]
+        };
+
+        return keyFrequencies[key] || [];
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new RoomtoneAnalyser();
+    const analyser = new RoomtoneAnalyser();
+    setTimeout(() => analyser.start(), 100);
 });

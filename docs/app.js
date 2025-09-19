@@ -62,6 +62,11 @@ class RoomtoneAnalyser {
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
+            // Resume AudioContext if suspended (required by some browsers)
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: false,
@@ -83,10 +88,15 @@ class RoomtoneAnalyser {
             this.toggleBtn.classList.remove('btn-primary');
             this.toggleBtn.classList.add('btn-secondary');
 
+            console.log('Audio analysis started successfully');
             this.draw();
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            alert('Unable to access microphone. Please ensure permissions are granted.');
+            // Don't show alert for auto-start failures
+            if (error.name !== 'NotAllowedError') {
+                alert('Unable to access microphone. Please ensure permissions are granted.');
+            }
+            throw error; // Re-throw so auto-start can handle it
         }
     }
 
@@ -663,6 +673,5 @@ class RoomtoneAnalyser {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const analyser = new RoomtoneAnalyser();
-    setTimeout(() => analyser.start(), 100);
+    new RoomtoneAnalyser();
 });

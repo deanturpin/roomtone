@@ -150,6 +150,45 @@ class RoomtoneAnalyser {
         this.spectrumCtx.moveTo(0, height / 2);
         this.spectrumCtx.lineTo(width, height / 2);
         this.spectrumCtx.stroke();
+
+        this.drawNoteLabels();
+    }
+
+    drawNoteLabels() {
+        const width = this.spectrumCanvas.offsetWidth;
+        const height = this.spectrumCanvas.offsetHeight;
+        const nyquist = this.audioContext.sampleRate / 2;
+
+        const noteFrequencies = [
+            { note: 'C2', freq: 65.41 },
+            { note: 'C3', freq: 130.81 },
+            { note: 'C4', freq: 261.63 },
+            { note: 'A4', freq: 440 },
+            { note: 'C5', freq: 523.25 },
+            { note: 'C6', freq: 1046.50 },
+            { note: 'C7', freq: 2093.00 },
+            { note: 'C8', freq: 4186.01 }
+        ];
+
+        this.spectrumCtx.font = '10px monospace';
+        this.spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        this.spectrumCtx.textAlign = 'center';
+
+        noteFrequencies.forEach(({ note, freq }) => {
+            if (freq < nyquist) {
+                const x = (freq / nyquist) * width;
+
+                this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                this.spectrumCtx.setLineDash([2, 4]);
+                this.spectrumCtx.beginPath();
+                this.spectrumCtx.moveTo(x, 0);
+                this.spectrumCtx.lineTo(x, height - 20);
+                this.spectrumCtx.stroke();
+                this.spectrumCtx.setLineDash([]);
+
+                this.spectrumCtx.fillText(note, x, height - 5);
+            }
+        });
     }
 
     drawWaveform(data) {

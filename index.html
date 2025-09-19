@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>roomtone - Frequency Visualiser</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>roomtone</h1>
+            <p class="subtitle">Frequency spectrum of your space</p>
+        </header>
+
+        <main>
+            <canvas id="spectrum"></canvas>
+            <canvas id="waveform"></canvas>
+
+            <div class="controls">
+                <button id="startBtn" class="btn-primary">Start Listening</button>
+                <button id="stopBtn" class="btn-secondary" disabled>Stop</button>
+            </div>
+
+            <div class="info">
+                <div class="frequency-info">
+                    <span class="label">Peak Frequency:</span>
+                    <span id="peakFreq">-- Hz</span>
+                </div>
+                <div class="frequency-info">
+                    <span class="label">Dominant Note:</span>
+                    <span id="dominantNote">--</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

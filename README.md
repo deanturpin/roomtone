@@ -9,12 +9,14 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 ## Core Features
 
 ### Room Analysis
+
 - Detect resonant frequencies through FFT analysis of ambient noise
 - Identify persistent peaks in the frequency spectrum
 - Calculate room modes from acoustic response
 - Track dominant frequencies over time
 
 ### Audio Processing
+
 - Real-time microphone capture with permission handling
 - Feedback prevention through internal loop subtraction
 - FIFO buffer for evolving soundscapes
@@ -22,6 +24,7 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 - Granular synthesis from captured fragments
 
 ### Generative Engine
+
 - Use room resonances as root notes/harmonics
 - Musical scale quantisation
 - Construct loops from environmental sounds
@@ -33,6 +36,7 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 ## Technical Implementation
 
 ### Web Audio API Stack
+
 - **Audio Input**: `getUserMedia()` for microphone access
 - **Analysis**: `AnalyserNode` for FFT/frequency analysis
 - **Processing**: `ScriptProcessorNode` or `AudioWorklet` for custom DSP
@@ -41,11 +45,13 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 - **Output**: `AudioContext.destination`
 
 ### Libraries
+
 - **Tone.js**: High-level audio framework
 - **p5.js**: Frequency spectrum visualisation
 - **Meyda**: Audio feature extraction
 
 ### Deployment
+
 - Static HTML/JS (works anywhere)
 - GitHub Pages / Vercel hosting
 - PWA manifest for mobile installation
@@ -54,6 +60,7 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 ## Implementation Steps
 
 ### Phase 1: Room Analysis
+
 ```javascript
 // Basic room resonance detector
 const audioContext = new AudioContext();
@@ -79,6 +86,7 @@ navigator.mediaDevices.getUserMedia({ audio: true })
 ```
 
 ### Phase 2: Audio Capture & Loop Buffer
+
 ```javascript
 // Circular buffer for evolving soundscape
 class LoopBuffer {
@@ -98,6 +106,7 @@ class LoopBuffer {
 ```
 
 ### Phase 3: Generative Processing
+
 - Detect interesting audio events (transients, tonal content)
 - Slice and reorganise captured audio
 - Apply musical quantisation based on room's resonant frequencies
@@ -106,6 +115,7 @@ class LoopBuffer {
 ## UI Design
 
 ### Minimal Interface
+
 - Large start/stop button (tap to begin)
 - Frequency spectrum visualiser
 - Detected room frequencies display
@@ -113,6 +123,7 @@ class LoopBuffer {
 - Recording/export button
 
 ### Visual Feedback
+
 - Real-time spectrum analyser
 - Pulsing indicators for detected resonances
 - Waveform of current loop buffer

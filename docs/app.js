@@ -22,7 +22,7 @@ class RoomtoneAnalyser {
 
         this.smoothedPeakFreq = 0;
         this.smoothedPeakX = 0;
-        this.smoothingFactor = 0.92;
+        this.smoothingFactor = 0.92; // Back to stable smoothing
         this.currentNote = '';
         this.smoothedNote = '';
 
@@ -67,10 +67,73 @@ class RoomtoneAnalyser {
 
     bindPianoEvents() {
         const pianoKeys = this.piano.querySelectorAll('.piano-key');
+        this.isDragging = false;
+        this.currentDragKey = null;
+
         pianoKeys.forEach(key => {
-            key.addEventListener('mousedown', (e) => this.playPianoKey(e.target));
-            key.addEventListener('mouseup', (e) => this.stopPianoKey(e.target));
-            key.addEventListener('mouseleave', (e) => this.stopPianoKey(e.target));
+            key.addEventListener('mousedown', (e) => {
+                this.isDragging = true;
+                this.playPianoKey(e.target);
+                e.preventDefault();
+            });
+
+            key.addEventListener('mouseenter', (e) => {
+                if (this.isDragging) {
+                    if (this.currentDragKey && this.currentDragKey !== e.target) {
+                        this.stopPianoKey(this.currentDragKey);
+                    }
+                    this.playPianoKey(e.target);
+                }
+            });
+
+            key.addEventListener('mouseleave', (e) => {
+                if (!this.isDragging) {
+                    this.stopPianoKey(e.target);
+                }
+            });
+        });
+
+        // Global mouse up to stop dragging
+        document.addEventListener('mouseup', () => {
+            if (this.isDragging) {
+                this.isDragging = false;
+                if (this.currentDragKey) {
+                    this.stopPianoKey(this.currentDragKey);
+                    this.currentDragKey = null;
+                }
+            }
+        });
+
+        // Touch events for mobile
+        pianoKeys.forEach(key => {
+            key.addEventListener('touchstart', (e) => {
+                this.isDragging = true;
+                this.playPianoKey(e.target);
+                e.preventDefault();
+            });
+
+            key.addEventListener('touchmove', (e) => {
+                if (this.isDragging) {
+                    const touch = e.touches[0];
+                    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (element && element.classList.contains('piano-key') && element !== this.currentDragKey) {
+                        if (this.currentDragKey) {
+                            this.stopPianoKey(this.currentDragKey);
+                        }
+                        this.playPianoKey(element);
+                    }
+                }
+                e.preventDefault();
+            });
+
+            key.addEventListener('touchend', (e) => {
+                this.isDragging = false;
+                if (this.currentDragKey) {
+                    this.stopPianoKey(this.currentDragKey);
+                    this.currentDragKey = null;
+                }
+                e.preventDefault();
+            });
         });
     }
 
@@ -179,9 +242,9 @@ class RoomtoneAnalyser {
             oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
             oscillator.type = 'sine';
 
-            // Louder for testing, quick attack
+            // Much louder for testing, quick attack
             pianoGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-            pianoGain.gain.exponentialRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01); // Much louder
+            pianoGain.gain.exponentialRampToValueAtTime(0.6, this.audioContext.currentTime + 0.01); // Even louder!
 
             oscillator.connect(pianoGain);
 
@@ -201,6 +264,7 @@ class RoomtoneAnalyser {
                 note: note
             });
 
+            this.currentDragKey = keyElement;
             keyElement.style.transform = 'translateY(1px)';
         } catch (error) {
             console.warn('Error playing piano key:', error);
@@ -278,13 +342,13 @@ class RoomtoneAnalyser {
 
             if (bin < data.length) {
                 const amplitude = data[bin] / 255;
-                const logAmplitude = amplitude > 0 ? Math.log10(amplitude * 9 + 1) : 0;
-                const barHeight = logAmplitude * height * 0.8;
+                // Fixed scale: use full height but don't auto-scale
+                const barHeight = amplitude * height * 0.8;
                 this.spectrumCtx.fillStyle = gradient;
                 this.spectrumCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
 
-                // Analyze full spectrum but mark generation vs analysis zones
-                if (data[bin] > 30 && freq > 80 && freq < 4000) {
+                // Only analyze peaks above threshold (about 50% of scale)
+                if (data[bin] > 128 && freq > 80 && freq < 4000) {
                     peaks.push({
                         value: data[bin],
                         freq: freq,
@@ -306,6 +370,7 @@ class RoomtoneAnalyser {
 
         this.drawNoteLabels();
         this.drawFrequencySeparator();
+        this.drawThresholdLine();
 
         // Always detect dominant key from all available data
         const analysisZonePeaks = prominentPeaks.map(peak => ({
@@ -331,6 +396,7 @@ class RoomtoneAnalyser {
         if (prominentPeaks.length > 0) {
             // Use the strongest prominent peak for the main indicator
             const mainPeak = prominentPeaks[0];
+            console.log(`Main peak: ${mainPeak.freq.toFixed(1)}Hz (${this.frequencyToNote(mainPeak.freq)}), value: ${mainPeak.value}`);
 
             this.smoothedPeakFreq = this.smoothedPeakFreq * this.smoothingFactor + mainPeak.freq * (1 - this.smoothingFactor);
             this.smoothedPeakX = this.smoothedPeakX * this.smoothingFactor + mainPeak.x * (1 - this.smoothingFactor);
@@ -401,7 +467,12 @@ class RoomtoneAnalyser {
         const minDistance = 50; // Minimum frequency separation
 
         for (const peak of peaks) {
-            if (peak.value < 50) break; // Minimum threshold
+            // Debug B2 range (around 123Hz)
+            if (peak.freq >= 120 && peak.freq <= 130) {
+                console.log(`B2 peak detected: ${peak.freq.toFixed(1)}Hz, value: ${peak.value}`);
+            }
+
+            if (peak.value < 128) break; // Higher threshold to ignore noise
 
             // Check if this peak is far enough from already selected peaks
             const tooClose = prominent.some(p =>
@@ -815,6 +886,31 @@ class RoomtoneAnalyser {
         this.spectrumCtx.strokeStyle = `rgba(255, 200, 220, ${finalOpacity * 0.4})`;
         this.spectrumCtx.lineWidth = 3;
         this.spectrumCtx.strokeText(key, centerX, centerY);
+
+        this.spectrumCtx.restore();
+    }
+
+    drawThresholdLine() {
+        const width = this.spectrumCanvas.offsetWidth;
+        const height = this.spectrumCanvas.offsetHeight;
+
+        // Threshold line at about 50% of scale (corresponds to value 128/255)
+        const thresholdY = height - (height * 0.8 * (128/255));
+
+        this.spectrumCtx.save();
+        this.spectrumCtx.strokeStyle = 'rgba(255, 165, 0, 0.6)'; // Orange threshold line
+        this.spectrumCtx.lineWidth = 2;
+        this.spectrumCtx.setLineDash([5, 5]);
+
+        this.spectrumCtx.beginPath();
+        this.spectrumCtx.moveTo(0, thresholdY);
+        this.spectrumCtx.lineTo(width, thresholdY);
+        this.spectrumCtx.stroke();
+
+        // Label
+        this.spectrumCtx.fillStyle = 'rgba(255, 165, 0, 0.8)';
+        this.spectrumCtx.font = '12px monospace';
+        this.spectrumCtx.fillText('THRESHOLD', width - 80, thresholdY - 5);
 
         this.spectrumCtx.restore();
     }

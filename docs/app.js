@@ -138,6 +138,9 @@ class RoomtoneAnalyser {
         gradient.addColorStop(1, '#ffaa00');
 
         const barWidth = 2;
+        let peakValue = 0;
+        let peakFreq = 0;
+        let peakX = 0;
 
         for (let x = 0; x < width; x += barWidth) {
             const logFreq = logMin + (x / width) * (logMax - logMin);
@@ -148,6 +151,12 @@ class RoomtoneAnalyser {
                 const barHeight = (data[bin] / 255) * height * 0.8;
                 this.spectrumCtx.fillStyle = gradient;
                 this.spectrumCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+
+                if (data[bin] > peakValue && freq > 80 && freq < 4000) {
+                    peakValue = data[bin];
+                    peakFreq = freq;
+                    peakX = x;
+                }
             }
         }
 
@@ -158,6 +167,29 @@ class RoomtoneAnalyser {
         this.spectrumCtx.stroke();
 
         this.drawNoteLabels();
+
+        if (peakValue > 50) {
+            this.drawPeakIndicator(peakX, peakFreq, height);
+        }
+    }
+
+    drawPeakIndicator(x, freq, height) {
+        this.spectrumCtx.strokeStyle = '#ffaa00';
+        this.spectrumCtx.lineWidth = 2;
+        this.spectrumCtx.setLineDash([]);
+        this.spectrumCtx.beginPath();
+        this.spectrumCtx.moveTo(x, 0);
+        this.spectrumCtx.lineTo(x, height - 20);
+        this.spectrumCtx.stroke();
+        this.spectrumCtx.lineWidth = 1;
+
+        const note = this.frequencyToNote(freq);
+        const labelText = `${freq.toFixed(1)} Hz (${note})`;
+
+        this.spectrumCtx.font = '12px monospace';
+        this.spectrumCtx.fillStyle = '#ffaa00';
+        this.spectrumCtx.textAlign = 'center';
+        this.spectrumCtx.fillText(labelText, x, 20);
     }
 
     drawNoteLabels() {
@@ -165,16 +197,25 @@ class RoomtoneAnalyser {
         const height = this.spectrumCanvas.offsetHeight;
         const nyquist = this.audioContext.sampleRate / 2;
 
-        const noteFrequencies = [
-            { note: 'C2', freq: 65.41 },
-            { note: 'C3', freq: 130.81 },
-            { note: 'C4', freq: 261.63 },
-            { note: 'A4', freq: 440 },
-            { note: 'C5', freq: 523.25 },
-            { note: 'C6', freq: 1046.50 },
-            { note: 'C7', freq: 2093.00 },
-            { note: 'C8', freq: 4186.01 }
-        ];
+        const noteFrequencies = [];
+        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+        for (let octave = 1; octave <= 8; octave++) {
+            for (let noteIdx = 0; noteIdx < notes.length; noteIdx++) {
+                const note = notes[noteIdx];
+                const freq = 440 * Math.pow(2, (octave - 4) + (noteIdx - 9) / 12);
+
+                if (freq >= 20 && freq <= 10000) {
+                    const isC = note === 'C';
+                    const isA = note === 'A' && octave === 4;
+                    noteFrequencies.push({
+                        note: `${note}${octave}`,
+                        freq: freq,
+                        major: isC || isA
+                    });
+                }
+            }
+        }
 
         this.spectrumCtx.font = '10px monospace';
         this.spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
@@ -185,20 +226,46 @@ class RoomtoneAnalyser {
         const logMin = Math.log10(minFreq);
         const logMax = Math.log10(maxFreq);
 
-        noteFrequencies.forEach(({ note, freq }) => {
+        noteFrequencies.forEach(({ note, freq, major }) => {
             if (freq >= minFreq && freq < nyquist) {
                 const logFreq = Math.log10(freq);
                 const x = ((logFreq - logMin) / (logMax - logMin)) * width;
 
-                this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-                this.spectrumCtx.setLineDash([2, 4]);
-                this.spectrumCtx.beginPath();
-                this.spectrumCtx.moveTo(x, 0);
-                this.spectrumCtx.lineTo(x, height - 20);
-                this.spectrumCtx.stroke();
-                this.spectrumCtx.setLineDash([]);
+                if (major) {
+                    this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    this.spectrumCtx.setLineDash([2, 4]);
+                    this.spectrumCtx.beginPath();
+                    this.spectrumCtx.moveTo(x, 0);
+                    this.spectrumCtx.lineTo(x, height - 20);
+                    this.spectrumCtx.stroke();
+                    this.spectrumCtx.setLineDash([]);
 
-                this.spectrumCtx.fillText(note, x, height - 5);
+                    this.spectrumCtx.font = '10px monospace';
+                    this.spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    this.spectrumCtx.fillText(note, x, height - 5);
+                } else if (note.includes('#')) {
+                    this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    this.spectrumCtx.setLineDash([1, 3]);
+                    this.spectrumCtx.beginPath();
+                    this.spectrumCtx.moveTo(x, height * 0.7);
+                    this.spectrumCtx.lineTo(x, height - 20);
+                    this.spectrumCtx.stroke();
+                    this.spectrumCtx.setLineDash([]);
+                } else {
+                    this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                    this.spectrumCtx.setLineDash([1, 5]);
+                    this.spectrumCtx.beginPath();
+                    this.spectrumCtx.moveTo(x, height * 0.8);
+                    this.spectrumCtx.lineTo(x, height - 20);
+                    this.spectrumCtx.stroke();
+                    this.spectrumCtx.setLineDash([]);
+
+                    if (freq < 1000) {
+                        this.spectrumCtx.font = '8px monospace';
+                        this.spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                        this.spectrumCtx.fillText(note, x, height - 5);
+                    }
+                }
             }
         });
     }

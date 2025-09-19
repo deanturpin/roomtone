@@ -15,6 +15,12 @@ class RoomtoneAnalyser {
         this.peakFreqDisplay = document.getElementById('peakFreq');
         this.dominantNoteDisplay = document.getElementById('dominantNote');
 
+        this.smoothedPeakFreq = 0;
+        this.smoothedPeakX = 0;
+        this.smoothingFactor = 0.85;
+        this.currentNote = '';
+        this.smoothedNote = '';
+
         this.setupCanvases();
         this.bindEvents();
     }
@@ -138,9 +144,7 @@ class RoomtoneAnalyser {
         gradient.addColorStop(1, '#ffaa00');
 
         const barWidth = 2;
-        let peakValue = 0;
-        let peakFreq = 0;
-        let peakX = 0;
+        const peaks = [];
 
         for (let x = 0; x < width; x += barWidth) {
             const logFreq = logMin + (x / width) * (logMax - logMin);
@@ -148,17 +152,20 @@ class RoomtoneAnalyser {
             const bin = Math.floor((freq / nyquist) * data.length);
 
             if (bin < data.length) {
-                const barHeight = (data[bin] / 255) * height * 0.8;
+                const amplitude = data[bin] / 255;
+                const logAmplitude = amplitude > 0 ? Math.log10(amplitude * 9 + 1) : 0;
+                const barHeight = logAmplitude * height * 0.8;
                 this.spectrumCtx.fillStyle = gradient;
                 this.spectrumCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
 
-                if (data[bin] > peakValue && freq > 80 && freq < 4000) {
-                    peakValue = data[bin];
-                    peakFreq = freq;
-                    peakX = x;
+                if (data[bin] > 30 && freq > 80 && freq < 4000) {
+                    peaks.push({ value: data[bin], freq: freq, x: x });
                 }
             }
         }
+
+        // Find local maxima - peaks that are higher than nearby frequencies
+        const prominentPeaks = this.findProminentPeaks(peaks);
 
         this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
         this.spectrumCtx.beginPath();
@@ -168,28 +175,147 @@ class RoomtoneAnalyser {
 
         this.drawNoteLabels();
 
-        if (peakValue > 50) {
-            this.drawPeakIndicator(peakX, peakFreq, height);
+        if (prominentPeaks.length > 0) {
+            // Use the strongest prominent peak for the main indicator
+            const mainPeak = prominentPeaks[0];
+
+            this.smoothedPeakFreq = this.smoothedPeakFreq * this.smoothingFactor + mainPeak.freq * (1 - this.smoothingFactor);
+            this.smoothedPeakX = this.smoothedPeakX * this.smoothingFactor + mainPeak.x * (1 - this.smoothingFactor);
+
+            const newNote = this.frequencyToNote(mainPeak.freq);
+            if (newNote !== this.currentNote) {
+                this.currentNote = newNote;
+                this.noteChangeCounter = 0;
+            } else {
+                this.noteChangeCounter = (this.noteChangeCounter || 0) + 1;
+            }
+
+            if (this.noteChangeCounter > 8 || !this.smoothedNote) {
+                this.smoothedNote = newNote;
+            }
+
+            this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
+
+            // Draw secondary prominent peaks
+            prominentPeaks.slice(1, 4).forEach(peak => {
+                this.drawSecondaryPeak(peak.x, peak.freq, height, peak.value);
+            });
         }
     }
 
-    drawPeakIndicator(x, freq, height) {
-        this.spectrumCtx.strokeStyle = '#ffaa00';
-        this.spectrumCtx.lineWidth = 2;
+    drawPeakIndicator(x, freq, height, displayNote) {
+        const note = displayNote || this.frequencyToNote(freq);
+        const width = this.spectrumCanvas.offsetWidth;
+
+        // Epic glowing note overlay
+        this.spectrumCtx.save();
+
+        // Multiple glow layers for that sweet sweet bloom
+        const glowLayers = [
+            { size: 140, alpha: 0.05, color: '255, 40, 80' },
+            { size: 130, alpha: 0.08, color: '255, 60, 100' },
+            { size: 120, alpha: 0.12, color: '255, 80, 120' },
+            { size: 110, alpha: 0.15, color: '255, 100, 140' },
+            { size: 100, alpha: 0.2, color: '255, 120, 160' }
+        ];
+
+        glowLayers.forEach(layer => {
+            this.spectrumCtx.font = `bold ${layer.size}px -apple-system, BlinkMacSystemFont, sans-serif`;
+            this.spectrumCtx.fillStyle = `rgba(${layer.color}, ${layer.alpha})`;
+            this.spectrumCtx.textAlign = 'center';
+            this.spectrumCtx.textBaseline = 'middle';
+            this.spectrumCtx.fillText(note, width / 2, height / 2);
+        });
+
+        // Main note text with gradient
+        const gradient = this.spectrumCtx.createLinearGradient(0, height / 2 - 60, 0, height / 2 + 60);
+        gradient.addColorStop(0, 'rgba(255, 180, 200, 0.9)');
+        gradient.addColorStop(0.5, 'rgba(255, 100, 140, 0.95)');
+        gradient.addColorStop(1, 'rgba(255, 60, 100, 0.9)');
+
+        this.spectrumCtx.font = 'bold 100px -apple-system, BlinkMacSystemFont, sans-serif';
+        this.spectrumCtx.fillStyle = gradient;
+        this.spectrumCtx.fillText(note, width / 2, height / 2);
+
+        // Add some sparkle with a subtle stroke
+        this.spectrumCtx.strokeStyle = 'rgba(255, 200, 220, 0.3)';
+        this.spectrumCtx.lineWidth = 3;
+        this.spectrumCtx.strokeText(note, width / 2, height / 2);
+
+        this.spectrumCtx.restore();
+
+        // Pulsing orange indicator line
+        const pulse = Math.sin(Date.now() * 0.008) * 0.3 + 0.7;
+        this.spectrumCtx.strokeStyle = `rgba(255, 170, 0, ${pulse})`;
+        this.spectrumCtx.lineWidth = 3;
         this.spectrumCtx.setLineDash([]);
         this.spectrumCtx.beginPath();
         this.spectrumCtx.moveTo(x, 0);
         this.spectrumCtx.lineTo(x, height - 20);
         this.spectrumCtx.stroke();
-        this.spectrumCtx.lineWidth = 1;
 
-        const note = this.frequencyToNote(freq);
-        const labelText = `${freq.toFixed(1)} Hz (${note})`;
+        // Glowing frequency label
+        const labelText = `${freq.toFixed(1)} Hz`;
 
-        this.spectrumCtx.font = '12px monospace';
-        this.spectrumCtx.fillStyle = '#ffaa00';
+        this.spectrumCtx.shadowColor = '#ffaa00';
+        this.spectrumCtx.shadowBlur = 8;
+        this.spectrumCtx.font = 'bold 14px monospace';
+        this.spectrumCtx.fillStyle = '#ffdd44';
         this.spectrumCtx.textAlign = 'center';
-        this.spectrumCtx.fillText(labelText, x, 20);
+        this.spectrumCtx.textBaseline = 'alphabetic';
+        this.spectrumCtx.fillText(labelText, x, 25);
+
+        this.spectrumCtx.shadowBlur = 0;
+        this.spectrumCtx.lineWidth = 1;
+    }
+
+    findProminentPeaks(peaks) {
+        if (peaks.length === 0) return [];
+
+        // Sort by amplitude
+        peaks.sort((a, b) => b.value - a.value);
+
+        const prominent = [];
+        const minDistance = 50; // Minimum frequency separation
+
+        for (const peak of peaks) {
+            if (peak.value < 50) break; // Minimum threshold
+
+            // Check if this peak is far enough from already selected peaks
+            const tooClose = prominent.some(p =>
+                Math.abs(Math.log10(peak.freq) - Math.log10(p.freq)) < 0.05
+            );
+
+            if (!tooClose) {
+                prominent.push(peak);
+                if (prominent.length >= 5) break; // Max 5 peaks
+            }
+        }
+
+        return prominent;
+    }
+
+    drawSecondaryPeak(x, freq, height, amplitude) {
+        const alpha = Math.min(amplitude / 255 * 0.8, 0.6);
+
+        // Smaller indicator line
+        this.spectrumCtx.strokeStyle = `rgba(255, 200, 100, ${alpha})`;
+        this.spectrumCtx.lineWidth = 1;
+        this.spectrumCtx.setLineDash([3, 3]);
+        this.spectrumCtx.beginPath();
+        this.spectrumCtx.moveTo(x, height * 0.2);
+        this.spectrumCtx.lineTo(x, height - 20);
+        this.spectrumCtx.stroke();
+        this.spectrumCtx.setLineDash([]);
+
+        // Small frequency label
+        const note = this.frequencyToNote(freq);
+        this.spectrumCtx.font = '10px monospace';
+        this.spectrumCtx.fillStyle = `rgba(255, 200, 100, ${alpha})`;
+        this.spectrumCtx.textAlign = 'center';
+        this.spectrumCtx.fillText(note, x, height * 0.15);
+
+        this.spectrumCtx.lineWidth = 1;
     }
 
     drawNoteLabels() {
@@ -281,12 +407,12 @@ class RoomtoneAnalyser {
         this.waveformCtx.strokeStyle = '#00ff88';
         this.waveformCtx.beginPath();
 
-        const sliceWidth = width / data.length;
-        let x = 0;
+        const sliceHeight = height / data.length;
+        let y = 0;
 
         for (let i = 0; i < data.length; i++) {
             const v = data[i] / 128.0;
-            const y = v * height / 2;
+            const x = (v - 1) * width / 2 + width / 2;
 
             if (i === 0) {
                 this.waveformCtx.moveTo(x, y);
@@ -294,9 +420,17 @@ class RoomtoneAnalyser {
                 this.waveformCtx.lineTo(x, y);
             }
 
-            x += sliceWidth;
+            y += sliceHeight;
         }
 
+        this.waveformCtx.stroke();
+
+        // Add center line
+        this.waveformCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        this.waveformCtx.lineWidth = 1;
+        this.waveformCtx.beginPath();
+        this.waveformCtx.moveTo(width / 2, 0);
+        this.waveformCtx.lineTo(width / 2, height);
         this.waveformCtx.stroke();
     }
 

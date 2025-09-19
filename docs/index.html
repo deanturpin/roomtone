@@ -9,27 +9,31 @@
 <body>
     <div class="container">
         <header>
-            <h1>roomtone</h1>
-            <p class="subtitle">Frequency spectrum of your space</p>
-            <p class="version" id="version"></p>
+            <div class="title-section">
+                <h1>roomtone</h1>
+                <p class="subtitle">Frequency spectrum of your space</p>
+                <p class="version" id="version"></p>
+            </div>
+            <div class="header-controls">
+                <button id="toggleBtn" class="btn-primary">Start Listening</button>
+            </div>
         </header>
 
         <main>
-            <canvas id="spectrum"></canvas>
-            <canvas id="waveform"></canvas>
-
-            <div class="controls">
-                <button id="toggleBtn" class="btn-primary">Start Listening</button>
-            </div>
-
-            <div class="info">
-                <div class="frequency-info">
-                    <span class="label">Peak Frequency:</span>
-                    <span id="peakFreq">-- Hz</span>
-                </div>
-                <div class="frequency-info">
-                    <span class="label">Dominant Note:</span>
-                    <span id="dominantNote">--</span>
+            <div class="display-container">
+                <canvas id="spectrum"></canvas>
+                <div class="side-panel">
+                    <canvas id="waveform"></canvas>
+                    <div class="info">
+                        <div class="frequency-info">
+                            <span class="label">Peak Frequency:</span>
+                            <span id="peakFreq">-- Hz</span>
+                        </div>
+                        <div class="frequency-info">
+                            <span class="label">Dominant Note:</span>
+                            <span id="dominantNote">--</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

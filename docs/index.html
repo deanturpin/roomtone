@@ -10,11 +10,26 @@
     <div class="container">
         <header>
             <div class="title-section">
-                <h1>roomtone <span class="subtitle-inline">Frequency spectrum of your space</span></h1>
+                <h1>roomtone <span class="subtitle-inline">FREQUENCY SPECTRUM OF YOUR SPACE</span></h1>
                 <p class="version" id="version"></p>
             </div>
             <div class="header-controls">
                 <button id="toggleBtn" class="btn-primary">Start Listening</button>
+                <button id="muteBtn" class="btn-secondary" style="display: none;">Mute Output</button>
+                <div id="piano" class="piano" style="display: none;">
+                    <div class="piano-key white" data-freq="261.63" data-note="C4"></div>
+                    <div class="piano-key black" data-freq="277.18" data-note="C#4"></div>
+                    <div class="piano-key white" data-freq="293.66" data-note="D4"></div>
+                    <div class="piano-key black" data-freq="311.13" data-note="D#4"></div>
+                    <div class="piano-key white" data-freq="329.63" data-note="E4"></div>
+                    <div class="piano-key white" data-freq="349.23" data-note="F4"></div>
+                    <div class="piano-key black" data-freq="369.99" data-note="F#4"></div>
+                    <div class="piano-key white" data-freq="392.00" data-note="G4"></div>
+                    <div class="piano-key black" data-freq="415.30" data-note="G#4"></div>
+                    <div class="piano-key white" data-freq="440.00" data-note="A4"></div>
+                    <div class="piano-key black" data-freq="466.16" data-note="A#4"></div>
+                    <div class="piano-key white" data-freq="493.88" data-note="B4"></div>
+                </div>
             </div>
         </header>
 
@@ -23,6 +38,16 @@
                 <canvas id="spectrum"></canvas>
                 <div class="side-panel">
                     <canvas id="waveform"></canvas>
+                    <div class="info">
+                        <div class="frequency-info">
+                            <div class="label">Active Notes</div>
+                            <div id="activeNotes">—</div>
+                        </div>
+                        <div class="frequency-info">
+                            <div class="label">Chord</div>
+                            <div id="activeChord">—</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

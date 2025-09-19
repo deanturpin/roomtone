@@ -12,10 +12,17 @@ class RoomtoneAnalyser {
         this.waveformCtx = this.waveformCanvas.getContext('2d');
 
         this.toggleBtn = document.getElementById('toggleBtn');
+        this.muteBtn = document.getElementById('muteBtn');
+        this.isMuted = false;
+        this.piano = document.getElementById('piano');
+        this.activePianoTones = new Map();
+
+        this.activeNotesDisplay = document.getElementById('activeNotes');
+        this.activeChordDisplay = document.getElementById('activeChord');
 
         this.smoothedPeakFreq = 0;
         this.smoothedPeakX = 0;
-        this.smoothingFactor = 0.85;
+        this.smoothingFactor = 0.92;
         this.currentNote = '';
         this.smoothedNote = '';
 
@@ -28,7 +35,10 @@ class RoomtoneAnalyser {
         // Tone generation
         this.oscillators = [];
         this.gainNode = null;
+        this.reverbNode = null;
         this.currentToneKey = null;
+        this.harmonicOscillators = new Map(); // Track individual harmonic oscillators
+        this.settledFrequencies = new Map(); // Track frequencies that have settled
 
         this.setupCanvases();
         this.bindEvents();
@@ -51,6 +61,17 @@ class RoomtoneAnalyser {
 
     bindEvents() {
         this.toggleBtn.addEventListener('click', () => this.toggle());
+        this.muteBtn.addEventListener('click', () => this.toggleMute());
+        this.bindPianoEvents();
+    }
+
+    bindPianoEvents() {
+        const pianoKeys = this.piano.querySelectorAll('.piano-key');
+        pianoKeys.forEach(key => {
+            key.addEventListener('mousedown', (e) => this.playPianoKey(e.target));
+            key.addEventListener('mouseup', (e) => this.stopPianoKey(e.target));
+            key.addEventListener('mouseleave', (e) => this.stopPianoKey(e.target));
+        });
     }
 
     toggle() {
@@ -93,6 +114,8 @@ class RoomtoneAnalyser {
             this.toggleBtn.textContent = 'Stop Listening';
             this.toggleBtn.classList.remove('btn-primary');
             this.toggleBtn.classList.add('btn-secondary');
+            this.muteBtn.style.display = 'inline-block';
+            this.piano.style.display = 'flex';
 
             console.log('Audio analysis started successfully');
             this.draw();
@@ -126,8 +149,84 @@ class RoomtoneAnalyser {
         this.toggleBtn.textContent = 'Start Listening';
         this.toggleBtn.classList.remove('btn-secondary');
         this.toggleBtn.classList.add('btn-primary');
+        this.muteBtn.style.display = 'none';
+        this.piano.style.display = 'none';
 
         this.clearCanvases();
+    }
+
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        this.muteBtn.textContent = this.isMuted ? 'Unmute Output' : 'Mute Output';
+
+        if (this.gainNode) {
+            this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : 0.1, this.audioContext.currentTime);
+        }
+    }
+
+    playPianoKey(keyElement) {
+        if (!this.audioContext || !this.gainNode) return;
+
+        const frequency = parseFloat(keyElement.dataset.freq);
+        const note = keyElement.dataset.note;
+
+        if (this.activePianoTones.has(frequency)) return; // Already playing
+
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const pianoGain = this.audioContext.createGain();
+
+            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+            oscillator.type = 'sine';
+
+            // Louder for testing, quick attack
+            pianoGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            pianoGain.gain.exponentialRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01); // Much louder
+
+            oscillator.connect(pianoGain);
+
+            // Connect directly to destination for testing, bypassing mute and reverb
+            if (this.isMuted) {
+                pianoGain.connect(this.audioContext.destination);
+            } else {
+                pianoGain.connect(this.gainNode);
+            }
+
+            oscillator.start();
+            console.log(`Playing piano key: ${note} at ${frequency}Hz`);
+
+            this.activePianoTones.set(frequency, {
+                oscillator: oscillator,
+                gain: pianoGain,
+                note: note
+            });
+
+            keyElement.style.transform = 'translateY(1px)';
+        } catch (error) {
+            console.warn('Error playing piano key:', error);
+        }
+    }
+
+    stopPianoKey(keyElement) {
+        const frequency = parseFloat(keyElement.dataset.freq);
+
+        if (!this.activePianoTones.has(frequency)) return;
+
+        const tone = this.activePianoTones.get(frequency);
+
+        // Quick release
+        tone.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+
+        setTimeout(() => {
+            try {
+                tone.oscillator.stop();
+            } catch (e) {
+                // Already stopped
+            }
+            this.activePianoTones.delete(frequency);
+        }, 150);
+
+        keyElement.style.transform = '';
     }
 
     draw() {
@@ -220,8 +319,14 @@ class RoomtoneAnalyser {
         // Draw the dominant key in the center
         this.drawKeyIndicator(width / 2, height / 2, dominantKey, resonanceStrength);
 
-        // Generate tones based on detected key
-        this.updateToneGeneration(dominantKey, resonanceStrength);
+        // Track and generate tones for settled frequencies (disabled for now)
+        // this.trackSettledFrequencies(prominentPeaks);
+
+        // Update displays for active notes and chords
+        this.updateActiveNotesDisplay();
+
+        // Generate tones based on detected key (disabled for now)
+        // this.updateToneGeneration(dominantKey, resonanceStrength);
 
         if (prominentPeaks.length > 0) {
             // Use the strongest prominent peak for the main indicator
@@ -715,15 +820,189 @@ class RoomtoneAnalyser {
     }
 
     setupToneGeneration() {
+        // Create reverb effect
+        this.reverbNode = this.audioContext.createConvolver();
+        this.createReverbImpulse();
+
         // Create gain node for volume control
         this.gainNode = this.audioContext.createGain();
-        this.gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime); // Start quiet
-        this.gainNode.connect(this.audioContext.destination);
+        this.gainNode.gain.setValueAtTime(0.05, this.audioContext.currentTime); // Start very quiet
+
+        // Connect: oscillators -> gain -> reverb -> destination
+        this.gainNode.connect(this.reverbNode);
+        this.reverbNode.connect(this.audioContext.destination);
+    }
+
+    createReverbImpulse() {
+        const length = this.audioContext.sampleRate * 2; // 2 seconds of reverb
+        const impulse = this.audioContext.createBuffer(2, length, this.audioContext.sampleRate);
+
+        for (let channel = 0; channel < 2; channel++) {
+            const channelData = impulse.getChannelData(channel);
+            for (let i = 0; i < length; i++) {
+                const decay = Math.pow(1 - i / length, 2);
+                channelData[i] = (Math.random() * 2 - 1) * decay * 0.3;
+            }
+        }
+
+        this.reverbNode.buffer = impulse;
+    }
+
+    trackSettledFrequencies(prominentPeaks) {
+        const currentTime = Date.now();
+        const settleDuration = 2000; // 2 seconds to consider a frequency settled (faster for testing)
+        const settleThreshold = 10; // Hz tolerance for considering frequency stable
+
+        // Update tracking for current peaks
+        prominentPeaks.forEach(peak => {
+            // Find existing tracked frequency within threshold
+            let foundExisting = false;
+            for (let [trackedFreq, data] of this.settledFrequencies) {
+                if (Math.abs(peak.freq - trackedFreq) < settleThreshold) {
+                    data.lastSeen = currentTime;
+                    data.strength = Math.max(data.strength, peak.strength);
+                    foundExisting = true;
+                    break;
+                }
+            }
+
+            // If no existing frequency found, start tracking this one
+            if (!foundExisting && peak.freq < 500) {
+                this.settledFrequencies.set(peak.freq, {
+                    firstSeen: currentTime,
+                    lastSeen: currentTime,
+                    strength: peak.strength,
+                    hasGeneratedTone: false
+                });
+            }
+        });
+
+        // Check for settled frequencies and generate tones
+        for (let [freq, data] of this.settledFrequencies) {
+            const age = currentTime - data.firstSeen;
+            const timeSinceLastSeen = currentTime - data.lastSeen;
+
+            // Remove old frequencies that haven't been seen recently
+            if (timeSinceLastSeen > 2000) {
+                this.settledFrequencies.delete(freq);
+                this.stopHarmonicTone(freq);
+                continue;
+            }
+
+            // Generate tone for settled frequencies
+            if (age > settleDuration && !data.hasGeneratedTone && freq < 500) {
+                console.log(`Starting harmonic tone for ${freq.toFixed(1)}Hz (settled for ${(age/1000).toFixed(1)}s)`);
+                this.startHarmonicTone(freq, data.strength);
+                data.hasGeneratedTone = true;
+            }
+        }
+    }
+
+    startHarmonicTone(frequency, strength) {
+        if (this.isMuted || this.harmonicOscillators.has(frequency) || !this.audioContext || !this.gainNode) return;
+
+        try {
+            // Create oscillator for this specific frequency
+            const oscillator = this.audioContext.createOscillator();
+            const harmonicGain = this.audioContext.createGain();
+
+            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+            oscillator.type = 'sine';
+
+            // More audible for testing - fade-in over 2 seconds
+            const safeStrength = Math.max(strength || 0.5, 0.1); // Default to 0.5 if strength is falsy
+            const targetVolume = Math.min(safeStrength * 0.1, 0.15); // Calculate target volume
+            const finalVolume = Math.max(targetVolume, 0.01); // Ensure minimum 0.01 volume
+
+            console.log(`Harmonic tone volumes: strength=${strength}, safe=${safeStrength}, target=${targetVolume}, final=${finalVolume}`);
+
+            harmonicGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            harmonicGain.gain.exponentialRampToValueAtTime(finalVolume, this.audioContext.currentTime + 2);
+
+            // Connect: oscillator -> harmonic gain -> main gain -> reverb -> destination
+            oscillator.connect(harmonicGain);
+            harmonicGain.connect(this.gainNode);
+
+            oscillator.start();
+
+            // Store the oscillator and gain for later control
+            this.harmonicOscillators.set(frequency, {
+                oscillator: oscillator,
+                gain: harmonicGain,
+                note: this.frequencyToNote(frequency)
+            });
+        } catch (error) {
+            console.warn('Error creating harmonic tone:', error);
+        }
+    }
+
+    stopHarmonicTone(frequency) {
+        if (!this.harmonicOscillators.has(frequency)) return;
+
+        const harmonic = this.harmonicOscillators.get(frequency);
+
+        // Fade out over 1 second
+        harmonic.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 1);
+
+        // Stop and clean up after fade
+        setTimeout(() => {
+            try {
+                harmonic.oscillator.stop();
+            } catch (e) {
+                // Already stopped
+            }
+            this.harmonicOscillators.delete(frequency);
+        }, 1100);
+    }
+
+    updateActiveNotesDisplay() {
+        // Get all active notes from harmonic oscillators
+        const activeNotes = Array.from(this.harmonicOscillators.values()).map(h => h.note);
+
+        if (activeNotes.length === 0) {
+            this.activeNotesDisplay.textContent = '—';
+            this.activeChordDisplay.textContent = '—';
+            return;
+        }
+
+        // Remove duplicates and sort
+        const uniqueNotes = [...new Set(activeNotes)].sort();
+        this.activeNotesDisplay.textContent = uniqueNotes.join(', ');
+
+        // Simple chord detection
+        const chord = this.detectChord(uniqueNotes);
+        this.activeChordDisplay.textContent = chord || '—';
+    }
+
+    detectChord(notes) {
+        if (notes.length < 2) return null;
+
+        // Simple chord patterns (this could be expanded significantly)
+        const chordPatterns = {
+            'C,E,G': 'C major',
+            'C,E♭,G': 'C minor',
+            'D,F♯,A': 'D major',
+            'D,F,A': 'D minor',
+            'E,G♯,B': 'E major',
+            'E,G,B': 'E minor',
+            'F,A,C': 'F major',
+            'F,A♭,C': 'F minor',
+            'G,B,D': 'G major',
+            'G,B♭,D': 'G minor',
+            'A,C♯,E': 'A major',
+            'A,C,E': 'A minor',
+            'B,D♯,F♯': 'B major',
+            'B,D,F♯': 'B minor'
+        };
+
+        // Try to match chord patterns
+        const noteString = notes.join(',');
+        return chordPatterns[noteString] || `${notes.length} notes`;
     }
 
     updateToneGeneration(key, strength) {
-        if (!key || strength < 0.2) {
-            // Not enough signal strength, fade out
+        if (!key || strength < 0.2 || this.isMuted) {
+            // Not enough signal strength or muted, fade out
             if (this.gainNode) {
                 this.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
             }

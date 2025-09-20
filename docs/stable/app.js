@@ -295,17 +295,12 @@ class RoomtoneAnalyser {
     }
 
     stopAllToneGeneration() {
-        // Stop current primary peak tone quickly
-        if (this.currentPrimaryPeakGain) {
-            this.currentPrimaryPeakGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.02);
-        }
-
         // Stop peak tones
         if (this.activePianoTones) {
             for (const [freq, tone] of this.activePianoTones) {
                 if (tone.gains) {
                     tone.gains.forEach(gain => {
-                        if (gain) gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.02);
+                        if (gain) gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
                     });
                 }
                 setTimeout(() => {
@@ -314,7 +309,7 @@ class RoomtoneAnalyser {
                             try { osc.stop(); } catch (e) {}
                         });
                     }
-                }, 50);
+                }, 150);
             }
             this.activePianoTones.clear();
         }
@@ -749,7 +744,7 @@ class RoomtoneAnalyser {
 
         // Draw subtle ROOMTONE background text with logo gradient colors
         this.spectrumCtx.save();
-        this.spectrumCtx.globalAlpha = 0.5;
+        this.spectrumCtx.globalAlpha = 0.05;
 
         // Create gradient that matches the logo
         const textGradient = this.spectrumCtx.createLinearGradient(0, 0, width, height);
@@ -876,20 +871,23 @@ class RoomtoneAnalyser {
             // Use second peak for tone generation to avoid feedback, with hysteresis
             const tonePeak = this.selectTonePeakWithHysteresis(prominentPeaks);
 
-            // Generate tone only if there are multiple peaks (to avoid feedback)
-            if (this.audioFeedbackEnabled && prominentPeaks.length > 1 && tonePeak.value > this.thresholdValue * 1.2) {
-                // Always play the second peak to avoid feedback
-                const secondPeak = prominentPeaks[1];
-                this.playPeakTone(secondPeak.freq, secondPeak.value);
+            // Generate immediate tone for strong peaks using second peak (if feedback enabled)
+            if (this.audioFeedbackEnabled && tonePeak.value > this.thresholdValue * 1.2) { // Slightly lower threshold for second peak
+                this.playPeakTone(tonePeak.freq, tonePeak.value);
 
                 // Start background recording for reversed audio when peaks are strong
                 if (!this.isRecording) {
                     this.startBackgroundRecording();
                 }
-            } else if (this.audioFeedbackEnabled && prominentPeaks.length === 1) {
-                // If only one peak, fade out any existing tones
-                if (this.currentPrimaryPeakGain) {
-                    this.currentPrimaryPeakGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
+
+                // Play secondary peak if it exists and is strong enough
+                if (prominentPeaks.length > 1) {
+                    const secondaryPeak = prominentPeaks[1];
+                    if (secondaryPeak.value > this.thresholdValue * 1.2) { // Lower threshold for secondary
+                        setTimeout(() => {
+                            this.playPeakTone(secondaryPeak.freq, secondaryPeak.value * 0.7); // Lower volume
+                        }, 500); // Delay secondary peak by 500ms
+                    }
                 }
             }
 

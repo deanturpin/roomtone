@@ -25,13 +25,13 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 - Dominant musical key display with confidence-based opacity
 
 ### Tone Generation
-- Bass frequency generation below 500Hz to prevent feedback
+- Bass frequency generation for room tone foundation
 - Musical key-based tone selection using root and fifth frequencies
 - MIDI keyboard input for direct frequency control and live performance
 - Polyphonic MIDI note handling with velocity-sensitive volume
 - Automatic volume control with smooth ramping
 - Real-time response to detected dominant keys
-- Immediate stop functionality for feedback prevention
+- Immediate stop functionality and volume control
 
 ## Technical Implementation
 
@@ -48,7 +48,7 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 
 - Logarithmic frequency and amplitude scaling for musical representation
 - Harmonic scoring algorithm for musical key detection
-- Frequency domain separation (500Hz threshold) to prevent feedback
+- Visual frequency spectrum with configurable analysis range
 - Smooth peak tracking with configurable smoothing factors
 - Real-time canvas rendering optimised for 60fps display
 
@@ -73,7 +73,7 @@ The application is built around a single `RoomtoneAnalyser` class that handles:
 3. **Real-time Analysis**: Continuous FFT analysis with peak detection
 4. **Visual Rendering**: Canvas-based spectrum and waveform display
 5. **Musical Intelligence**: Key detection and harmonic analysis
-6. **Tone Generation**: Bass frequency synthesis below 500Hz with MIDI input support
+6. **Tone Generation**: Bass frequency synthesis with MIDI input support
 
 ### Key Methods
 

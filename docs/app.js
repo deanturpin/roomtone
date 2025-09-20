@@ -8,18 +8,13 @@ class RoomtoneAnalyser {
         this.isRunning = false;
 
         this.spectrumCanvas = document.getElementById('spectrum');
-        this.spectrumCtx = this.spectrumCanvas.getContext('2d');
+        this.spectrumCtx = this.spectrumCanvas?.getContext('2d');
 
         this.toneWaveCanvas = document.getElementById('toneWave');
-        this.toneWaveCtx = this.toneWaveCanvas.getContext('2d');
+        this.toneWaveCtx = this.toneWaveCanvas?.getContext('2d');
 
-        this.outputWaveCanvas = document.getElementById('outputWaveform');
-        this.outputWaveCtx = this.outputWaveCanvas.getContext('2d');
-        this.outputAnalyser = null;
 
         this.toggleBtn = document.getElementById('toggleBtn');
-        this.muteBtn = document.getElementById('muteBtn');
-        this.isMuted = false;
         this.piano = document.getElementById('piano');
         this.activePianoTones = new Map();
 
@@ -236,7 +231,6 @@ class RoomtoneAnalyser {
                 console.error('Error in toggle():', error);
             }
         });
-        this.muteBtn.addEventListener('click', () => this.toggleMute());
         this.bindPianoEvents();
     }
 
@@ -362,10 +356,13 @@ class RoomtoneAnalyser {
             this.startJungleAmbience();
 
             this.isRunning = true;
-            this.toggleBtn.textContent = 'Stop Listening';
-            this.toggleBtn.classList.remove('btn-primary');
-            this.toggleBtn.classList.add('btn-secondary');
-            this.muteBtn.style.display = 'inline-block';
+
+            // Hide the entire header after starting
+            const header = document.querySelector('header');
+            if (header) {
+                header.style.display = 'none';
+            }
+
             this.piano.style.display = 'flex';
 
             this.draw();
@@ -406,27 +403,24 @@ class RoomtoneAnalyser {
             this.audioContext.close();
         }
 
+        // Show the header again when stopping
+        const header = document.querySelector('header');
+        if (header) {
+            header.style.display = 'flex';
+        }
+
         this.toggleBtn.textContent = 'Start Listening';
         this.toggleBtn.classList.remove('btn-secondary');
         this.toggleBtn.classList.add('btn-primary');
-        this.muteBtn.style.display = 'none';
         this.piano.style.display = 'none';
 
         this.clearCanvases();
     }
 
-    toggleMute() {
-        this.isMuted = !this.isMuted;
-        this.muteBtn.textContent = this.isMuted ? 'Unmute Output' : 'Mute Output';
-
-        if (this.gainNode) {
-            this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : 0.1, this.audioContext.currentTime);
-        }
-    }
 
 
     playPeakTone(frequency, amplitude) {
-        if (!this.audioContext || this.isMuted) return;
+        if (!this.audioContext) return;
 
         try {
             // Fade out any existing primary peak tone
@@ -596,54 +590,14 @@ class RoomtoneAnalyser {
         this.analyser.getByteFrequencyData(frequencyData);
 
         this.drawSpectrum(frequencyData);
-        this.drawOutputWaveform();
 
         this.animationId = requestAnimationFrame(() => this.draw());
     }
 
-    drawOutputWaveform() {
-        if (!this.outputAnalyser) return;
-
-        const bufferLength = this.outputAnalyser.fftSize;
-        const dataArray = new Uint8Array(bufferLength);
-        this.outputAnalyser.getByteTimeDomainData(dataArray);
-
-        const width = this.outputWaveCanvas.width;
-        const height = this.outputWaveCanvas.height;
-
-        // Clear canvas
-        this.outputWaveCtx.clearRect(0, 0, width, height);
-
-        // Draw waveform
-        this.outputWaveCtx.lineWidth = 2;
-        this.outputWaveCtx.strokeStyle = '#4a9eff';
-        this.outputWaveCtx.beginPath();
-
-        const sliceWidth = width / bufferLength;
-        let x = 0;
-
-        for (let i = 0; i < bufferLength; i++) {
-            const v = dataArray[i] / 128.0;
-            const y = v * height / 2;
-
-            if (i === 0) {
-                this.outputWaveCtx.moveTo(x, y);
-            } else {
-                this.outputWaveCtx.lineTo(x, y);
-            }
-
-            x += sliceWidth;
-        }
-
-        this.outputWaveCtx.stroke();
-
-        // Add label
-        this.outputWaveCtx.font = '10px monospace';
-        this.outputWaveCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        this.outputWaveCtx.fillText('Output', 5, 15);
-    }
 
     drawSpectrum(data) {
+        if (!this.spectrumCtx || !this.spectrumCanvas) return;
+
         const width = this.spectrumCanvas.offsetWidth;
         const height = this.spectrumCanvas.offsetHeight;
 
@@ -1050,11 +1004,13 @@ class RoomtoneAnalyser {
     }
 
     showToneWaveform() {
+        if (!this.toneWaveCanvas) return;
         this.toneWaveCanvas.style.display = 'block';
         this.animateToneWaveform();
     }
 
     hideToneWaveform() {
+        if (!this.toneWaveCanvas) return;
         this.toneWaveCanvas.style.display = 'none';
     }
 
@@ -1533,16 +1489,11 @@ class RoomtoneAnalyser {
 
         // Create gain node for volume control
         this.gainNode = this.audioContext.createGain();
-        this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : 0.2, this.audioContext.currentTime); // Louder default volume
+        this.gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime); // Default volume
 
-        // Create output analyser for waveform display
-        this.outputAnalyser = this.audioContext.createAnalyser();
-        this.outputAnalyser.fftSize = 1024;
-
-        // Connect: oscillators -> gain -> reverb -> analyser -> destination
+        // Connect audio chain
         this.gainNode.connect(this.reverbNode);
-        this.reverbNode.connect(this.outputAnalyser);
-        this.outputAnalyser.connect(this.audioContext.destination);
+        this.reverbNode.connect(this.audioContext.destination);
 
         // Setup background recording
         this.setupBackgroundRecording();
@@ -1642,7 +1593,7 @@ class RoomtoneAnalyser {
     }
 
     playReversedAudio() {
-        if (!this.reversedAudioBuffer || this.isMuted) return;
+        if (!this.reversedAudioBuffer) return;
 
         try {
             const source = this.audioContext.createBufferSource();
@@ -1731,7 +1682,7 @@ class RoomtoneAnalyser {
     }
 
     startHarmonicTone(frequency, strength) {
-        if (this.isMuted || this.harmonicOscillators.has(frequency) || !this.audioContext || !this.gainNode) return;
+        if (this.harmonicOscillators.has(frequency) || !this.audioContext || !this.gainNode) return;
 
         try {
             // Create oscillator for this specific frequency
@@ -1855,8 +1806,8 @@ class RoomtoneAnalyser {
             }
         }
 
-        if (!key || strength < 0.2 || this.isMuted) {
-            // Not enough signal strength or muted, fade out
+        if (!key || strength < 0.2) {
+            // Not enough signal strength, fade out
             if (this.gainNode) {
                 this.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
             }

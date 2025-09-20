@@ -23,7 +23,7 @@ class RoomtoneAnalyser {
         this.currentNote = '';
         this.smoothedNote = '';
         this.peakFadeOpacity = 0; // For fading peak indicators
-        this.lastPeakTime = 0;
+        this.lastPeakTime = Date.now(); // Initialize to now to prevent immediate fading
         this.smoothedAmplitudes = new Array(2048).fill(0); // For smooth FFT bars
 
         // Room mode detection
@@ -391,7 +391,10 @@ class RoomtoneAnalyser {
 
         const currentTime = Date.now();
 
-        if (prominentPeaks.length > 0) {
+        // Check if we have any meaningful peaks (not just prominent peaks array length)
+        const hasSignificantPeaks = prominentPeaks.length > 0 && prominentPeaks[0].value >= 128;
+
+        if (hasSignificantPeaks) {
             // Use the strongest prominent peak for the main indicator
             const mainPeak = prominentPeaks[0];
             console.log(`Main peak: ${mainPeak.freq.toFixed(1)}Hz (${this.frequencyToNote(mainPeak.freq)}), value: ${mainPeak.value}`);
@@ -426,10 +429,12 @@ class RoomtoneAnalyser {
             // Track frequencies for room mode detection
             this.trackFrequencyHistory(prominentPeaks);
         } else {
-            // No peaks detected - start fading
+            // No significant peaks detected - start fading
             const timeSinceLastPeak = currentTime - this.lastPeakTime;
             const fadeStartDelay = 500; // Start fading after 500ms
             const fadeOutDuration = 1500; // Fade out over 1.5 seconds
+
+            console.log(`No peaks: time since last peak: ${timeSinceLastPeak}ms, fade opacity: ${this.peakFadeOpacity.toFixed(2)}`);
 
             if (timeSinceLastPeak > fadeStartDelay) {
                 const fadeProgress = Math.min((timeSinceLastPeak - fadeStartDelay) / fadeOutDuration, 1);

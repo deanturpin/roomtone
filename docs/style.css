@@ -171,7 +171,6 @@ button:disabled {
     background: #fff;
     border: 1px solid #ccc;
     border-radius: 0 0 4px 4px;
-    margin: 0 1px;
     color: #333;
     z-index: 1;
 }
@@ -187,11 +186,11 @@ button:disabled {
     z-index: 2;
 }
 
-.piano-key.black[data-note="C#4"] { left: 34px; }
-.piano-key.black[data-note="D#4"] { left: 66px; }
-.piano-key.black[data-note="F#4"] { left: 130px; }
-.piano-key.black[data-note="G#4"] { left: 162px; }
-.piano-key.black[data-note="A#4"] { left: 194px; }
+.piano-key.black[data-note="C#4"] { left: 19px; }
+.piano-key.black[data-note="D#4"] { left: 47px; }
+.piano-key.black[data-note="F#4"] { left: 103px; }
+.piano-key.black[data-note="G#4"] { left: 131px; }
+.piano-key.black[data-note="A#4"] { left: 159px; }
 
 .piano-key.white:hover {
     background: #f0f0f0;

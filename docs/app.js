@@ -578,7 +578,7 @@ class RoomtoneAnalyser {
             this.spectrumCtx.shadowColor = 'rgba(255, 50, 150, 0.5)';
             this.spectrumCtx.shadowBlur = 4;
 
-            const label = `${mode.note} ROOM MODE`;
+            const label = `${mode.note}`;
             this.spectrumCtx.fillText(label, x, height - 40 - (index * 20));
 
             this.spectrumCtx.shadowBlur = 0;
@@ -893,10 +893,11 @@ class RoomtoneAnalyser {
         this.spectrumCtx.lineTo(width, thresholdY);
         this.spectrumCtx.stroke();
 
-        // Label
+        // Label above the line
         this.spectrumCtx.fillStyle = 'rgba(255, 165, 0, 0.8)';
         this.spectrumCtx.font = '12px monospace';
-        this.spectrumCtx.fillText('THRESHOLD', width - 80, thresholdY - 5);
+        this.spectrumCtx.textAlign = 'left';
+        this.spectrumCtx.fillText('THRESHOLD', 10, thresholdY - 8);
 
         this.spectrumCtx.restore();
     }

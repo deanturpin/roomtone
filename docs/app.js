@@ -418,7 +418,7 @@ class RoomtoneAnalyser {
 
         // this.drawNoteLabels(); // Disabled for cleaner look
         // this.drawFrequencySeparator(); // Disabled for cleaner look
-        this.drawThresholdLine();
+        // this.drawThresholdLine(); // Disabled for cleaner look
 
         // Always detect dominant key from all available data
         const analysisZonePeaks = prominentPeaks.map(peak => ({

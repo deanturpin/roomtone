@@ -424,7 +424,7 @@ class RoomtoneAnalyser {
         this.spectrumCtx.lineTo(width, height / 2);
         this.spectrumCtx.stroke();
 
-        // this.drawNoteLabels(); // Disabled for cleaner look
+        this.drawCOctaveLabels(); // Show C octave markers
         // this.drawFrequencySeparator(); // Disabled for cleaner look
         // this.drawThresholdLine(); // Disabled for cleaner look
 
@@ -737,6 +737,49 @@ class RoomtoneAnalyser {
             possibleDimensions: dimensions.map(d => d.toFixed(2) + 'm'),
             roomModes: this.roomModes
         };
+    }
+
+    drawCOctaveLabels() {
+        const width = this.spectrumCanvas.offsetWidth;
+        const height = this.spectrumCanvas.offsetHeight;
+        const nyquist = this.audioContext.sampleRate / 2;
+
+        // Only show C notes across octaves
+        const cNotes = [];
+        for (let octave = 1; octave <= 8; octave++) {
+            const freq = 440 * Math.pow(2, (octave - 4) + (-9) / 12); // C note calculation
+            if (freq >= 20 && freq <= nyquist) {
+                cNotes.push({
+                    note: `C${octave}`,
+                    freq: freq
+                });
+            }
+        }
+
+        const minFreq = 20;
+        const maxFreq = nyquist;
+        const logMin = Math.log10(minFreq);
+        const logMax = Math.log10(maxFreq);
+
+        cNotes.forEach(({ note, freq }) => {
+            const logFreq = Math.log10(freq);
+            const x = ((logFreq - logMin) / (logMax - logMin)) * width;
+
+            // Draw subtle vertical line
+            this.spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            this.spectrumCtx.setLineDash([2, 4]);
+            this.spectrumCtx.beginPath();
+            this.spectrumCtx.moveTo(x, 0);
+            this.spectrumCtx.lineTo(x, height - 20);
+            this.spectrumCtx.stroke();
+            this.spectrumCtx.setLineDash([]);
+
+            // Draw label
+            this.spectrumCtx.font = '10px monospace';
+            this.spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            this.spectrumCtx.textAlign = 'center';
+            this.spectrumCtx.fillText(note, x, height - 5);
+        });
     }
 
     drawNoteLabels() {

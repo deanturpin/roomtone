@@ -154,7 +154,6 @@ button:disabled {
 }
 
 .piano-key {
-    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -163,34 +162,23 @@ button:disabled {
     cursor: pointer;
     user-select: none;
     transition: all 0.1s ease;
+    width: 28px;
+    height: 60px;
+    border-radius: 4px;
+    margin: 0 1px;
 }
 
 .piano-key.white {
-    width: 28px;
-    height: 60px;
     background: #fff;
     border: 1px solid #ccc;
-    border-radius: 0 0 4px 4px;
     color: #333;
-    z-index: 1;
 }
 
 .piano-key.black {
-    width: 20px;
-    height: 40px;
     background: #333;
     border: 1px solid #111;
-    border-radius: 0 0 3px 3px;
     color: #fff;
-    position: absolute;
-    z-index: 2;
 }
-
-.piano-key.black[data-note="C#4"] { left: 20px; }
-.piano-key.black[data-note="D#4"] { left: 48px; }
-.piano-key.black[data-note="F#4"] { left: 104px; }
-.piano-key.black[data-note="G#4"] { left: 132px; }
-.piano-key.black[data-note="A#4"] { left: 160px; }
 
 .piano-key.white:hover {
     background: #f0f0f0;

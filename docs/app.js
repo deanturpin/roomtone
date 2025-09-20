@@ -390,7 +390,15 @@ class RoomtoneAnalyser {
 
                 // Fixed scale: use full height but don't auto-scale
                 const barHeight = this.smoothedAmplitudes[bin] * height * 0.8;
-                this.spectrumCtx.fillStyle = gradient;
+
+                // Different color when above peak detection threshold
+                if (data[bin] > 128 && freq > 80 && freq < 4000) {
+                    // Brighter, more saturated color for peaks
+                    this.spectrumCtx.fillStyle = `hsl(${hue2}, 100%, 75%)`;
+                } else {
+                    // Normal gradient for non-peak bins
+                    this.spectrumCtx.fillStyle = gradient;
+                }
 
                 // Draw rounded rectangle for smoother appearance
                 this.drawRoundedRect(x, height - barHeight, barWidth - 1, barHeight, 2);

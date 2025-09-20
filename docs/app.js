@@ -397,8 +397,8 @@ class RoomtoneAnalyser {
 
         // Note: Active notes display removed
 
-        // Generate tones based on detected key (disabled for now)
-        // this.updateToneGeneration(dominantKey, resonanceStrength);
+        // Generate low drone tone based on detected key
+        this.updateToneGeneration(dominantKey, resonanceStrength);
 
         const currentTime = Date.now();
 
@@ -810,15 +810,52 @@ class RoomtoneAnalyser {
 
     frequencyToNote(freq) {
         const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        const A4 = 440;
 
         if (freq < 20 || freq > 20000) return '--';
 
-        const semitones = 12 * Math.log2(freq / A4);
-        const noteIndex = Math.round(semitones) % 12;
-        const octave = Math.floor((semitones + 69) / 12);
+        // Vallotti temperament - 18th century well-tempered tuning
+        // Based on C4 = 261.626Hz, with specific cent deviations from equal temperament
+        const C4_base = 261.626; // Equal temperament C4
 
-        return notes[(noteIndex + 12) % 12] + octave;
+        // Vallotti cent deviations from equal temperament for each semitone from C
+        const vallottiDeviations = [
+            0,      // C
+            -5.86,  // C#
+            -3.91,  // D
+            -9.77,  // D#
+            -1.96,  // E
+            -1.96,  // F
+            -7.82,  // F#
+            -1.96,  // G
+            -7.82,  // G#
+            -3.91,  // A
+            -9.77,  // A#
+            -1.96   // B
+        ];
+
+        // Find closest note in Vallotti tuning across all octaves
+        let closestNote = 0;
+        let closestOctave = 4;
+        let minDistance = Infinity;
+
+        // Check octaves from 0 to 9
+        for (let oct = 0; oct <= 9; oct++) {
+            vallottiDeviations.forEach((cents, noteIndex) => {
+                // Calculate Vallotti frequency for this note in this octave
+                const octaveMultiplier = Math.pow(2, oct - 4); // Relative to C4
+                const equalTempFreq = C4_base * Math.pow(2, noteIndex/12) * octaveMultiplier;
+                const vallottiFreq = equalTempFreq * Math.pow(2, cents/1200);
+
+                const distance = Math.abs(Math.log2(freq / vallottiFreq));
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestNote = noteIndex;
+                    closestOctave = oct;
+                }
+            });
+        }
+
+        return notes[closestNote] + closestOctave;
     }
 
     clearCanvases() {
@@ -850,20 +887,23 @@ class RoomtoneAnalyser {
     detectDominantKey(allPeaks) {
         if (allPeaks.length === 0) return null;
 
-        const noteFrequencies = {
-            'C': [65.41, 130.81, 261.63, 523.25, 1046.50],
-            'C#': [69.30, 138.59, 277.18, 554.37, 1108.73],
-            'D': [73.42, 146.83, 293.66, 587.33, 1174.66],
-            'D#': [77.78, 155.56, 311.13, 622.25, 1244.51],
-            'E': [82.41, 164.81, 329.63, 659.25, 1318.51],
-            'F': [87.31, 174.61, 349.23, 698.46, 1396.91],
-            'F#': [92.50, 185.00, 369.99, 739.99, 1479.98],
-            'G': [98.00, 196.00, 392.00, 783.99, 1567.98],
-            'G#': [103.83, 207.65, 415.30, 830.61, 1661.22],
-            'A': [110.00, 220.00, 440.00, 880.00, 1760.00],
-            'A#': [116.54, 233.08, 466.16, 932.33, 1864.66],
-            'B': [123.47, 246.94, 493.88, 987.77, 1975.53]
-        };
+        // Vallotti temperament frequencies for key detection
+        const C4_base = 261.626;
+        const vallottiDeviations = [0, -5.86, -3.91, -9.77, -1.96, -1.96, -7.82, -1.96, -7.82, -3.91, -9.77, -1.96];
+
+        const noteFrequencies = {};
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+        noteNames.forEach((noteName, noteIndex) => {
+            noteFrequencies[noteName] = [];
+            // Generate 5 octaves for each note (C1 to C6)
+            for (let oct = 1; oct <= 5; oct++) {
+                const octaveMultiplier = Math.pow(2, oct - 4); // Relative to C4
+                const equalTempFreq = C4_base * Math.pow(2, noteIndex/12) * octaveMultiplier;
+                const vallottiFreq = equalTempFreq * Math.pow(2, vallottiDeviations[noteIndex]/1200);
+                noteFrequencies[noteName].push(vallottiFreq);
+            }
+        });
 
         const keyScores = {};
 
@@ -1173,22 +1213,23 @@ class RoomtoneAnalyser {
     startToneGeneration(key, strength) {
         if (!this.audioContext || !this.gainNode) return;
 
-        // Get bass frequencies for this key (below 500Hz)
-        const bassFrequencies = this.getKeyBassFrequencies(key);
+        console.log(`Starting drone for key: ${key}`);
 
-        bassFrequencies.forEach((freq, index) => {
+        // Generate Vallotti-tuned low drone frequencies for the detected key
+        const droneFrequencies = this.getVallottiDroneFrequencies(key);
+
+        droneFrequencies.forEach((freq, index) => {
             const oscillator = this.audioContext.createOscillator();
             const oscGain = this.audioContext.createGain();
 
-            // Different waveforms for richness
-            const waveforms = ['sine', 'triangle', 'sawtooth'];
-            oscillator.type = waveforms[index % waveforms.length];
-
+            // Use sine waves for smooth, warm drone
+            oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
 
-            // Individual oscillator gain
-            const volume = (index === 0) ? 0.6 : 0.3; // Root note louder
-            oscGain.gain.setValueAtTime(volume, this.audioContext.currentTime);
+            // Very subtle volume - just a gentle foundation
+            const volume = (index === 0) ? 0.08 : 0.04; // Root note slightly louder
+            oscGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            oscGain.gain.exponentialRampToValueAtTime(volume, this.audioContext.currentTime + 2); // Slow fade in
 
             oscillator.connect(oscGain);
             oscGain.connect(this.gainNode);
@@ -1196,6 +1237,46 @@ class RoomtoneAnalyser {
             oscillator.start();
             this.oscillators.push(oscillator);
         });
+    }
+
+    getVallottiDroneFrequencies(key) {
+        if (!key) return [];
+
+        // Vallotti temperament base frequencies
+        const C4_base = 261.626;
+        const vallottiDeviations = [0, -5.86, -3.91, -9.77, -1.96, -1.96, -7.82, -1.96, -7.82, -3.91, -9.77, -1.96];
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+        const keyIndex = noteNames.indexOf(key);
+        if (keyIndex === -1) return [];
+
+        const drones = [];
+
+        // Root note in low octaves (avoid feedback, stay below 500Hz)
+        for (let oct = 1; oct <= 3; oct++) {
+            const octaveMultiplier = Math.pow(2, oct - 4); // Relative to C4
+            const equalTempFreq = C4_base * Math.pow(2, keyIndex/12) * octaveMultiplier;
+            const vallottiFreq = equalTempFreq * Math.pow(2, vallottiDeviations[keyIndex]/1200);
+
+            if (vallottiFreq < 500) { // Stay below 500Hz to avoid feedback
+                drones.push(vallottiFreq);
+            }
+        }
+
+        // Add perfect fifth (if in bass range)
+        const fifthIndex = (keyIndex + 7) % 12;
+        for (let oct = 1; oct <= 3; oct++) {
+            const octaveMultiplier = Math.pow(2, oct - 4);
+            const equalTempFreq = C4_base * Math.pow(2, fifthIndex/12) * octaveMultiplier;
+            const vallottiFifth = equalTempFreq * Math.pow(2, vallottiDeviations[fifthIndex]/1200);
+
+            if (vallottiFifth < 500) {
+                drones.push(vallottiFifth);
+            }
+        }
+
+        console.log(`Drone frequencies for ${key}:`, drones);
+        return drones.slice(0, 4); // Limit to 4 drones max
     }
 
     stopToneGeneration() {

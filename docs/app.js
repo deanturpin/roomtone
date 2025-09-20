@@ -380,6 +380,9 @@ class RoomtoneAnalyser {
 
         console.log(`Key detection input: ${analysisZonePeaks.length} peaks, ${roomModeData.length} room modes`);
 
+        // Check if we have any meaningful peaks (not just prominent peaks array length)
+        const hasSignificantPeaks = prominentPeaks.length > 0 && prominentPeaks[0].value >= 128;
+
         // Only detect key if we have current significant peaks, not just old room modes
         const dominantKey = hasSignificantPeaks ? this.detectDominantKey(allKeyData) : null;
         const resonanceStrength = this.calculateResonanceStrength(prominentPeaks, this.roomModes);
@@ -398,9 +401,6 @@ class RoomtoneAnalyser {
         // this.updateToneGeneration(dominantKey, resonanceStrength);
 
         const currentTime = Date.now();
-
-        // Check if we have any meaningful peaks (not just prominent peaks array length)
-        const hasSignificantPeaks = prominentPeaks.length > 0 && prominentPeaks[0].value >= 128;
 
         if (hasSignificantPeaks) {
             // Use the strongest prominent peak for the main indicator

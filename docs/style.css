@@ -186,11 +186,11 @@ button:disabled {
     z-index: 2;
 }
 
-.piano-key.black[data-note="C#4"] { left: 19px; }
-.piano-key.black[data-note="D#4"] { left: 47px; }
-.piano-key.black[data-note="F#4"] { left: 103px; }
-.piano-key.black[data-note="G#4"] { left: 131px; }
-.piano-key.black[data-note="A#4"] { left: 159px; }
+.piano-key.black[data-note="C#4"] { left: 18px; }
+.piano-key.black[data-note="D#4"] { left: 46px; }
+.piano-key.black[data-note="F#4"] { left: 102px; }
+.piano-key.black[data-note="G#4"] { left: 130px; }
+.piano-key.black[data-note="A#4"] { left: 158px; }
 
 .piano-key.white:hover {
     background: #f0f0f0;

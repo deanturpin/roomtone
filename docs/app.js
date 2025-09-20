@@ -22,6 +22,8 @@ class RoomtoneAnalyser {
         this.smoothingFactor = 0.92; // Back to stable smoothing
         this.currentNote = '';
         this.smoothedNote = '';
+        this.peakFadeOpacity = 0; // For fading peak indicators
+        this.lastPeakTime = 0;
 
         // Room mode detection
         this.frequencyHistory = new Map();
@@ -101,6 +103,7 @@ class RoomtoneAnalyser {
         pianoKeys.forEach(key => {
             key.addEventListener('touchstart', (e) => {
                 this.isDragging = true;
+                this.currentDragKey = e.target;
                 this.playPianoKey(e.target);
                 e.preventDefault();
             });
@@ -113,6 +116,7 @@ class RoomtoneAnalyser {
                         if (this.currentDragKey) {
                             this.stopPianoKey(this.currentDragKey);
                         }
+                        this.currentDragKey = element;
                         this.playPianoKey(element);
                     }
                 }
@@ -379,6 +383,8 @@ class RoomtoneAnalyser {
         // Generate tones based on detected key (disabled for now)
         // this.updateToneGeneration(dominantKey, resonanceStrength);
 
+        const currentTime = Date.now();
+
         if (prominentPeaks.length > 0) {
             // Use the strongest prominent peak for the main indicator
             const mainPeak = prominentPeaks[0];
@@ -399,6 +405,10 @@ class RoomtoneAnalyser {
                 this.smoothedNote = newNote;
             }
 
+            // Peak detected - update timing and opacity
+            this.lastPeakTime = currentTime;
+            this.peakFadeOpacity = 1.0;
+
             // Draw peak indicator line (not in center)
             this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
 
@@ -409,6 +419,25 @@ class RoomtoneAnalyser {
 
             // Track frequencies for room mode detection
             this.trackFrequencyHistory(prominentPeaks);
+        } else {
+            // No peaks detected - start fading
+            const timeSinceLastPeak = currentTime - this.lastPeakTime;
+            const fadeStartDelay = 500; // Start fading after 500ms
+            const fadeOutDuration = 1500; // Fade out over 1.5 seconds
+
+            if (timeSinceLastPeak > fadeStartDelay) {
+                const fadeProgress = Math.min((timeSinceLastPeak - fadeStartDelay) / fadeOutDuration, 1);
+                this.peakFadeOpacity = 1 - fadeProgress;
+
+                // Draw fading peak indicators if still visible
+                if (this.peakFadeOpacity > 0.05 && this.smoothedPeakX > 0) {
+                    this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
+                }
+            } else if (this.smoothedPeakX > 0) {
+                // Still within delay period, show at full opacity
+                this.peakFadeOpacity = 1.0;
+                this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
+            }
         }
 
         // Draw detected room modes
@@ -418,9 +447,11 @@ class RoomtoneAnalyser {
     drawPeakIndicator(x, freq, height, displayNote) {
         const note = displayNote || this.frequencyToNote(freq);
 
-        // Pulsing orange indicator line
+        // Pulsing orange indicator line with fade support
         const pulse = Math.sin(Date.now() * 0.008) * 0.3 + 0.7;
-        this.spectrumCtx.strokeStyle = `rgba(255, 170, 0, ${pulse})`;
+        const fadeOpacity = this.peakFadeOpacity || 1.0;
+        const finalOpacity = pulse * fadeOpacity;
+        this.spectrumCtx.strokeStyle = `rgba(255, 170, 0, ${finalOpacity})`;
         this.spectrumCtx.lineWidth = 3;
         this.spectrumCtx.setLineDash([]);
         this.spectrumCtx.beginPath();
@@ -428,13 +459,13 @@ class RoomtoneAnalyser {
         this.spectrumCtx.lineTo(x, height - 20);
         this.spectrumCtx.stroke();
 
-        // Glowing frequency label
+        // Glowing frequency label with fade support
         const labelText = `${freq.toFixed(1)} Hz`;
 
-        this.spectrumCtx.shadowColor = '#ffaa00';
+        this.spectrumCtx.shadowColor = `rgba(255, 170, 0, ${fadeOpacity * 0.8})`;
         this.spectrumCtx.shadowBlur = 8;
         this.spectrumCtx.font = 'bold 14px monospace';
-        this.spectrumCtx.fillStyle = '#ffdd44';
+        this.spectrumCtx.fillStyle = `rgba(255, 221, 68, ${fadeOpacity})`;
         this.spectrumCtx.textAlign = 'center';
         this.spectrumCtx.textBaseline = 'alphabetic';
         this.spectrumCtx.fillText(labelText, x, 70);

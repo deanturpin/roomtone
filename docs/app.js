@@ -375,8 +375,16 @@ class RoomtoneAnalyser {
             value: peak.isGenerationZone ? peak.value * 0.3 : peak.value * 1.5
         }));
 
-        const dominantKey = this.detectDominantKey([...analysisZonePeaks, ...this.roomModes.map(m => ({freq: m.frequency, value: m.strength}))]);
+        const roomModeData = this.roomModes.map(m => ({freq: m.frequency, value: m.strength}));
+        const allKeyData = [...analysisZonePeaks, ...roomModeData];
+
+        console.log(`Key detection input: ${analysisZonePeaks.length} peaks, ${roomModeData.length} room modes`);
+
+        // Only detect key if we have current significant peaks, not just old room modes
+        const dominantKey = hasSignificantPeaks ? this.detectDominantKey(allKeyData) : null;
         const resonanceStrength = this.calculateResonanceStrength(prominentPeaks, this.roomModes);
+
+        console.log(`Detected key: ${dominantKey}, strength: ${resonanceStrength.toFixed(3)}`);
 
         // Draw the dominant key in the center
         this.drawKeyIndicator(width / 2, height / 2, dominantKey, resonanceStrength);

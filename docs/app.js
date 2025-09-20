@@ -392,7 +392,7 @@ class RoomtoneAnalyser {
                 const barHeight = this.smoothedAmplitudes[bin] * height * 0.8;
 
                 // Different color when above peak detection threshold
-                if (data[bin] > 128 && freq > 80 && freq < 4000) {
+                if (data[bin] > 128 && freq > 80) {
                     // Brighter, more saturated color for peaks
                     this.spectrumCtx.fillStyle = `hsl(${hue2}, 100%, 75%)`;
                 } else {
@@ -404,7 +404,7 @@ class RoomtoneAnalyser {
                 this.drawRoundedRect(x, height - barHeight, barWidth - 1, barHeight, 2);
 
                 // Only analyze peaks above threshold (about 50% of scale)
-                if (data[bin] > 128 && freq > 80 && freq < 4000) {
+                if (data[bin] > 128 && freq > 80) {
                     peaks.push({
                         value: data[bin],
                         freq: freq,

@@ -12,7 +12,7 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 
 ### Real-time Analysis
 - FFT-based frequency spectrum analysis with logarithmic scaling
-- Peak frequency detection with musical note identification
+- Peak frequency detection across full spectrum with musical note identification
 - Multi-peak detection for capturing harmonics and overtones
 - Room mode detection through frequency persistence tracking
 - Musical key detection using harmonic scoring algorithms

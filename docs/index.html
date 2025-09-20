@@ -5,70 +5,215 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ROOMTONE</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 100;
+            letter-spacing: 0.2em;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #00d4aa, #00a8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #a0a0a0;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .description {
+            font-size: 1rem;
+            color: #c0c0c0;
+            margin-bottom: 3rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .version-links {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+
+        .version-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 2rem;
+            min-width: 250px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .version-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(0, 212, 170, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .version-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #00d4aa;
+        }
+
+        .version-subtitle {
+            color: #a0a0a0;
+            margin-bottom: 1rem;
+        }
+
+        .version-description {
+            font-size: 0.9rem;
+            color: #c0c0c0;
+        }
+
+        .features {
+            text-align: left;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        .features h3 {
+            color: #00d4aa;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .features ul {
+            list-style: none;
+        }
+
+        .features li {
+            margin-bottom: 0.5rem;
+            color: #c0c0c0;
+        }
+
+        .features li:before {
+            content: "◆ ";
+            color: #00d4aa;
+            margin-right: 0.5rem;
+        }
+
+        .footer {
+            color: #808080;
+            font-size: 0.9rem;
+        }
+
+        .footer a {
+            color: #00a8ff;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .version-links {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .version-card {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <div class="title-section">
-                <div class="title-with-wave">
-                    <h1>ROOMTONE</h1>
-                    <canvas id="toneWave" width="120" height="30" style="display: none;"></canvas>
+        <h1>ROOMTONE</h1>
+
+        <p class="subtitle">
+            Real-time frequency analyser with musical key detection and bass tone generation
+        </p>
+
+        <p class="description">
+            Every room has its own acoustic signature. ROOMTONE discovers those frequencies
+            and uses them to generate complementary bass tones, creating ambient music
+            perfectly tuned to your space. Features live spectrum analysis, MIDI keyboard
+            support, and musical key detection.
+        </p>
+
+        <div class="features">
+            <h3>Key Features</h3>
+            <ul>
+                <li>Real-time FFT frequency analysis with musical note identification</li>
+                <li>MIDI keyboard input for live performance</li>
+                <li>Bass tone generation below 500Hz to prevent feedback</li>
+                <li>Musical key detection using harmonic scoring</li>
+                <li>Canvas-based spectrum and waveform visualisation</li>
+                <li>Privacy-first: all processing happens locally</li>
+            </ul>
+        </div>
+
+        <div class="version-links">
+            <a href="/roomtone/stable/" class="version-card">
+                <div class="version-title">Stable</div>
+                <div class="version-subtitle">Tagged releases</div>
+                <div class="version-description">
+                    Production-ready version with tested features.
+                    Updated with major releases and bug fixes.
                 </div>
-                <p class="version" id="version"></p>
-            </div>
-            <div class="header-controls">
-                <button id="muteBtn" class="btn-secondary" style="display: none;">Mute Output</button>
-                <button id="toggleBtn" class="btn-primary">Start Listening</button>
-            </div>
-        </header>
+            </a>
 
-        <main>
-            <div class="display-container">
-                <canvas id="spectrum"></canvas>
-                <canvas id="outputWaveform" width="400" height="100" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.3); border-radius: 8px;"></canvas>
+            <a href="/roomtone/latest/" class="version-card">
+                <div class="version-title">Latest</div>
+                <div class="version-subtitle">Development build</div>
+                <div class="version-description">
+                    Bleeding edge features and improvements.
+                    Updated with every commit during development.
+                </div>
+            </a>
+        </div>
 
-            </div>
-        </main>
-
-        <div id="piano" class="piano" style="display: none;">
-            <div class="key-group">
-                <div class="piano-key white" data-freq="65.407" data-note="C2">C</div>
-                <div class="piano-key black" data-freq="68.780" data-note="C#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="72.822" data-note="D2">D</div>
-                <div class="piano-key black" data-freq="76.393" data-note="D#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="81.888" data-note="E2">E</div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="86.818" data-note="F2">F</div>
-                <div class="piano-key black" data-freq="91.225" data-note="F#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="97.393" data-note="G2">G</div>
-                <div class="piano-key black" data-freq="102.230" data-note="G#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="108.960" data-note="A2">A</div>
-                <div class="piano-key black" data-freq="114.183" data-note="A#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="122.813" data-note="B2">B</div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="130.813" data-note="C3">C</div>
-            </div>
+        <div class="footer">
+            <p>
+                Built with Web Audio API and Canvas 2D •
+                <a href="https://github.com/deanturpin/roomtone">View on GitHub</a>
+            </p>
         </div>
     </div>
-
-    <script src="version.js"></script>
-    <script src="app.js"></script>
-    <script src="auto-refresh.js"></script>
-    <script>
-        document.getElementById('version').textContent = GIT_VERSION;
-    </script>
 </body>
 </html>

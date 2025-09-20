@@ -1,6 +1,6 @@
 # roomtone
 
-🎵 **[Try it live](http://turpin.dev/roomtone/)**
+🎵 **[Try it live](http://turpin.dev/roomtone/)** • [Latest](http://turpin.dev/roomtone/latest/) • [Stable](http://turpin.dev/roomtone/stable/)
 
 Real-time frequency analyser with musical key detection and bass tone generation. Visualises the acoustic spectrum of your space and responds with complementary bass frequencies.
 
@@ -58,6 +58,11 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 - Local development server via `make serve`
 - Auto-deployment via `make deploy`
 - HTTPS required for microphone access
+
+#### Version Structure
+- **Landing Page** (`/`): Project overview with links to versions
+- **Latest** (`/latest/`): Development build updated with every commit
+- **Stable** (`/stable/`): Production release updated only with git tags
 
 ## Current Implementation
 

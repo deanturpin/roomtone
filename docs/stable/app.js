@@ -85,11 +85,6 @@ class RoomtoneAnalyser {
         };
         this.reversedAudioBuffer = null;
 
-        // Frequency tooltip
-        this.tooltip = null;
-        this.mouseX = 0;
-        this.mouseY = 0;
-        this.showTooltip = false;
 
         // Draggable threshold
         this.isDraggingThreshold = false;
@@ -97,7 +92,7 @@ class RoomtoneAnalyser {
 
 
         this.setupCanvases();
-        this.setupTooltip();
+        this.setupCanvasEvents();
         this.bindEvents();
         this.setupMIDI();
     }
@@ -113,35 +108,22 @@ class RoomtoneAnalyser {
         window.addEventListener('resize', resize);
     }
 
-    setupTooltip() {
-        // Create tooltip element
-        this.tooltip = document.createElement('div');
-        this.tooltip.id = 'frequency-tooltip';
-        this.tooltip.style.cssText = `
-            position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-family: monospace;
-            pointer-events: none;
-            z-index: 1000;
-            display: none;
-            white-space: nowrap;
-        `;
-        document.body.appendChild(this.tooltip);
-
-        // Add mouse event listeners to spectrum canvas
+    setupCanvasEvents() {
+        // Add mouse/touch event listeners to spectrum canvas for threshold dragging and feedback toggle
         this.spectrumCanvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.spectrumCanvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.spectrumCanvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.spectrumCanvas.addEventListener('mouseenter', () => this.showTooltip = true);
         this.spectrumCanvas.addEventListener('mouseleave', () => {
-            this.showTooltip = false;
-            this.tooltip.style.display = 'none';
             this.isDraggingThreshold = false;
         });
+
+        // Add touch events for mobile
+        this.spectrumCanvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.spectrumCanvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.spectrumCanvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+
+        // Add click/tap event for audio feedback toggle
+        this.spectrumCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
     }
 
     handleMouseMove(event) {
@@ -160,9 +142,6 @@ class RoomtoneAnalyser {
 
             // Update cursor
             this.spectrumCanvas.style.cursor = 'ns-resize';
-
-            // Don't show frequency tooltip while dragging
-            this.tooltip.style.display = 'none';
             return;
         }
 
@@ -171,25 +150,8 @@ class RoomtoneAnalyser {
 
         if (isNearThreshold) {
             this.spectrumCanvas.style.cursor = 'ns-resize';
-            // Show threshold value with drag indicator
-            this.tooltip.innerHTML = `↕ Threshold: ${this.thresholdValue}`;
-            this.tooltip.style.left = (event.clientX + 10) + 'px';
-            this.tooltip.style.top = (event.clientY - 30) + 'px';
-            this.tooltip.style.display = 'block';
         } else {
             this.spectrumCanvas.style.cursor = 'default';
-
-            if (this.showTooltip) {
-                // Convert canvas position to frequency
-                const frequency = this.getFrequencyFromX(x);
-                const note = this.frequencyToNote(frequency);
-
-                // Update tooltip content and position
-                this.tooltip.innerHTML = `${frequency.toFixed(1)} Hz<br>${note}`;
-                this.tooltip.style.left = (event.clientX + 10) + 'px';
-                this.tooltip.style.top = (event.clientY - 30) + 'px';
-                this.tooltip.style.display = 'block';
-            }
         }
     }
 
@@ -199,7 +161,6 @@ class RoomtoneAnalyser {
 
         if (this.isNearThresholdLine(y)) {
             this.isDraggingThreshold = true;
-            this.showTooltip = false;
             event.preventDefault();
         }
     }
@@ -207,7 +168,59 @@ class RoomtoneAnalyser {
     handleMouseUp(event) {
         this.isDraggingThreshold = false;
         this.spectrumCanvas.style.cursor = 'default';
-        this.showTooltip = true;
+    }
+
+    handleCanvasClick(event) {
+        // Only toggle feedback if not dragging threshold
+        if (!this.isDraggingThreshold) {
+            const rect = this.spectrumCanvas.getBoundingClientRect();
+            const y = event.clientY - rect.top;
+
+            // Don't toggle if clicking near threshold line
+            if (!this.isNearThresholdLine(y)) {
+                this.toggleAudioFeedback();
+            }
+        }
+    }
+
+    handleTouchStart(event) {
+        event.preventDefault();
+        const touch = event.touches[0];
+        const rect = this.spectrumCanvas.getBoundingClientRect();
+        const y = touch.clientY - rect.top;
+
+        if (this.isNearThresholdLine(y)) {
+            this.isDraggingThreshold = true;
+        }
+    }
+
+    handleTouchMove(event) {
+        if (this.isDraggingThreshold) {
+            event.preventDefault();
+            const touch = event.touches[0];
+            const rect = this.spectrumCanvas.getBoundingClientRect();
+            const y = touch.clientY - rect.top;
+
+            // Update threshold
+            const height = this.spectrumCanvas.offsetHeight;
+            const normalizedY = Math.max(0, Math.min(1, y / height));
+            this.thresholdValue = Math.round((1 - normalizedY) * 255 / 0.8);
+        }
+    }
+
+    handleTouchEnd(event) {
+        if (this.isDraggingThreshold) {
+            this.isDraggingThreshold = false;
+        } else {
+            // Handle tap to toggle feedback
+            const touch = event.changedTouches[0];
+            const rect = this.spectrumCanvas.getBoundingClientRect();
+            const y = touch.clientY - rect.top;
+
+            if (!this.isNearThresholdLine(y)) {
+                this.toggleAudioFeedback();
+            }
+        }
     }
 
     isNearThresholdLine(mouseY) {
@@ -295,12 +308,17 @@ class RoomtoneAnalyser {
     }
 
     stopAllToneGeneration() {
+        // Stop current primary peak tone quickly
+        if (this.currentPrimaryPeakGain) {
+            this.currentPrimaryPeakGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.02);
+        }
+
         // Stop peak tones
         if (this.activePianoTones) {
             for (const [freq, tone] of this.activePianoTones) {
                 if (tone.gains) {
                     tone.gains.forEach(gain => {
-                        if (gain) gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+                        if (gain) gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.02);
                     });
                 }
                 setTimeout(() => {
@@ -309,7 +327,7 @@ class RoomtoneAnalyser {
                             try { osc.stop(); } catch (e) {}
                         });
                     }
-                }, 150);
+                }, 50);
             }
             this.activePianoTones.clear();
         }
@@ -467,10 +485,6 @@ class RoomtoneAnalyser {
             cancelAnimationFrame(this.animationId);
         }
 
-        // Hide tooltip
-        if (this.tooltip) {
-            this.tooltip.style.display = 'none';
-        }
 
         if (this.microphone) {
             this.microphone.disconnect();
@@ -744,7 +758,7 @@ class RoomtoneAnalyser {
 
         // Draw subtle ROOMTONE background text with logo gradient colors
         this.spectrumCtx.save();
-        this.spectrumCtx.globalAlpha = 0.05;
+        this.spectrumCtx.globalAlpha = 0.5;
 
         // Create gradient that matches the logo
         const textGradient = this.spectrumCtx.createLinearGradient(0, 0, width, height);
@@ -871,23 +885,20 @@ class RoomtoneAnalyser {
             // Use second peak for tone generation to avoid feedback, with hysteresis
             const tonePeak = this.selectTonePeakWithHysteresis(prominentPeaks);
 
-            // Generate immediate tone for strong peaks using second peak (if feedback enabled)
-            if (this.audioFeedbackEnabled && tonePeak.value > this.thresholdValue * 1.2) { // Slightly lower threshold for second peak
-                this.playPeakTone(tonePeak.freq, tonePeak.value);
+            // Generate tone only if there are multiple peaks (to avoid feedback)
+            if (this.audioFeedbackEnabled && prominentPeaks.length > 1 && tonePeak.value > this.thresholdValue * 1.2) {
+                // Always play the second peak to avoid feedback
+                const secondPeak = prominentPeaks[1];
+                this.playPeakTone(secondPeak.freq, secondPeak.value);
 
                 // Start background recording for reversed audio when peaks are strong
                 if (!this.isRecording) {
                     this.startBackgroundRecording();
                 }
-
-                // Play secondary peak if it exists and is strong enough
-                if (prominentPeaks.length > 1) {
-                    const secondaryPeak = prominentPeaks[1];
-                    if (secondaryPeak.value > this.thresholdValue * 1.2) { // Lower threshold for secondary
-                        setTimeout(() => {
-                            this.playPeakTone(secondaryPeak.freq, secondaryPeak.value * 0.7); // Lower volume
-                        }, 500); // Delay secondary peak by 500ms
-                    }
+            } else if (this.audioFeedbackEnabled && prominentPeaks.length === 1) {
+                // If only one peak, fade out any existing tones
+                if (this.currentPrimaryPeakGain) {
+                    this.currentPrimaryPeakGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
                 }
             }
 

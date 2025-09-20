@@ -526,7 +526,7 @@ class RoomtoneAnalyser {
         }
 
         // Draw detected room modes
-        this.drawRoomModes();
+        // this.drawRoomModes(); // Disabled for cleaner look
     }
 
     drawPeakIndicator(x, freq, height, displayNote) {

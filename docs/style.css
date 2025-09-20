@@ -39,7 +39,7 @@ header {
 
 h1 {
     font-size: 3rem;
-    font-weight: 300;
+    font-weight: 700;
     letter-spacing: 0.2rem;
     background: linear-gradient(135deg, #4a9eff, #00ff88);
     -webkit-background-clip: text;

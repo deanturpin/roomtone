@@ -480,8 +480,9 @@ class RoomtoneAnalyser {
             // Draw peak indicator line (not in center)
             this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
 
-            // Draw secondary prominent peaks
-            prominentPeaks.slice(1, 4).forEach(peak => {
+            // Store and draw secondary prominent peaks
+            this.lastSecondaryPeaks = prominentPeaks.slice(1, 4);
+            this.lastSecondaryPeaks.forEach(peak => {
                 this.drawSecondaryPeak(peak.x, peak.freq, height, peak.value);
             });
 
@@ -502,11 +503,25 @@ class RoomtoneAnalyser {
                 // Draw fading peak indicators if still visible
                 if (this.peakFadeOpacity > 0.05 && this.smoothedPeakX > 0) {
                     this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
+
+                    // Also draw fading secondary peaks if we still have them
+                    if (this.lastSecondaryPeaks && this.lastSecondaryPeaks.length > 0) {
+                        this.lastSecondaryPeaks.forEach(peak => {
+                            this.drawSecondaryPeak(peak.x, peak.freq, height, peak.value);
+                        });
+                    }
                 }
             } else if (this.smoothedPeakX > 0) {
                 // Still within delay period, show at full opacity
                 this.peakFadeOpacity = 1.0;
                 this.drawPeakIndicator(this.smoothedPeakX, this.smoothedPeakFreq, height, this.smoothedNote);
+
+                // Also show secondary peaks during delay period
+                if (this.lastSecondaryPeaks && this.lastSecondaryPeaks.length > 0) {
+                    this.lastSecondaryPeaks.forEach(peak => {
+                        this.drawSecondaryPeak(peak.x, peak.freq, height, peak.value);
+                    });
+                }
             }
         }
 
@@ -576,9 +591,11 @@ class RoomtoneAnalyser {
     }
 
     drawSecondaryPeak(x, freq, height, amplitude) {
-        const alpha = Math.min(amplitude / 255 * 0.8, 0.6);
+        const baseAlpha = Math.min(amplitude / 255 * 0.8, 0.6);
+        const fadeOpacity = this.peakFadeOpacity || 1.0;
+        const alpha = baseAlpha * fadeOpacity;
 
-        // Smaller indicator line
+        // Smaller indicator line with fade support
         this.spectrumCtx.strokeStyle = `rgba(255, 200, 100, ${alpha})`;
         this.spectrumCtx.lineWidth = 1;
         this.spectrumCtx.setLineDash([3, 3]);
@@ -588,7 +605,7 @@ class RoomtoneAnalyser {
         this.spectrumCtx.stroke();
         this.spectrumCtx.setLineDash([]);
 
-        // Small frequency label
+        // Small frequency label with fade support
         const note = this.frequencyToNote(freq);
         this.spectrumCtx.font = '10px monospace';
         this.spectrumCtx.fillStyle = `rgba(255, 200, 100, ${alpha})`;

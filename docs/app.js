@@ -24,6 +24,7 @@ class RoomtoneAnalyser {
         this.smoothedNote = '';
         this.peakFadeOpacity = 0; // For fading peak indicators
         this.lastPeakTime = 0;
+        this.smoothedAmplitudes = new Array(2048).fill(0); // For smooth FFT bars
 
         // Room mode detection
         this.frequencyHistory = new Map();
@@ -332,11 +333,16 @@ class RoomtoneAnalyser {
             const bin = Math.floor((freq / nyquist) * data.length);
 
             if (bin < data.length) {
-                const amplitude = data[bin] / 255;
+                // Smooth the amplitude for less jittery visualization
+                const rawAmplitude = data[bin] / 255;
+                this.smoothedAmplitudes[bin] = this.smoothedAmplitudes[bin] * 0.85 + rawAmplitude * 0.15;
+
                 // Fixed scale: use full height but don't auto-scale
-                const barHeight = amplitude * height * 0.8;
+                const barHeight = this.smoothedAmplitudes[bin] * height * 0.8;
                 this.spectrumCtx.fillStyle = gradient;
-                this.spectrumCtx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+
+                // Draw rounded rectangle for smoother appearance
+                this.drawRoundedRect(x, height - barHeight, barWidth - 1, barHeight, 2);
 
                 // Only analyze peaks above threshold (about 50% of scale)
                 if (data[bin] > 128 && freq > 80 && freq < 4000) {
@@ -808,6 +814,24 @@ class RoomtoneAnalyser {
 
         this.waveformCtx.fillStyle = 'rgb(20, 20, 30)';
         this.waveformCtx.fillRect(0, 0, this.waveformCanvas.width, this.waveformCanvas.height);
+    }
+
+    drawRoundedRect(x, y, width, height, radius) {
+        if (height < radius * 2) {
+            // For very small bars, just draw a regular rectangle
+            this.spectrumCtx.fillRect(x, y, width, height);
+            return;
+        }
+
+        this.spectrumCtx.beginPath();
+        this.spectrumCtx.moveTo(x, y + height); // Start at bottom left
+        this.spectrumCtx.lineTo(x, y + radius); // Left side up to corner
+        this.spectrumCtx.arcTo(x, y, x + radius, y, radius); // Top left corner
+        this.spectrumCtx.lineTo(x + width - radius, y); // Top side
+        this.spectrumCtx.arcTo(x + width, y, x + width, y + radius, radius); // Top right corner
+        this.spectrumCtx.lineTo(x + width, y + height); // Right side down
+        this.spectrumCtx.lineTo(x, y + height); // Bottom side back to start
+        this.spectrumCtx.fill();
     }
 
     detectDominantKey(allPeaks) {

@@ -11,7 +11,10 @@
     <div class="container">
         <header>
             <div class="title-section">
-                <h1>ROOMTONE</h1>
+                <div class="title-with-wave">
+                    <h1>ROOMTONE</h1>
+                    <canvas id="toneWave" width="120" height="30" style="display: none;"></canvas>
+                </div>
                 <p class="version" id="version"></p>
             </div>
             <div class="header-controls">
@@ -23,23 +26,40 @@
         <main>
             <div class="display-container">
                 <canvas id="spectrum"></canvas>
+                <canvas id="outputWaveform" width="400" height="100" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.3); border-radius: 8px;"></canvas>
             </div>
         </main>
 
         <div id="piano" class="piano" style="display: none;">
-            <div class="piano-key white" data-freq="65.407" data-note="C2"></div>
-            <div class="piano-key black" data-freq="68.780" data-note="C#2"></div>
-            <div class="piano-key white" data-freq="72.822" data-note="D2"></div>
-            <div class="piano-key black" data-freq="76.393" data-note="D#2"></div>
-            <div class="piano-key white" data-freq="81.888" data-note="E2"></div>
-            <div class="piano-key white" data-freq="86.818" data-note="F2"></div>
-            <div class="piano-key black" data-freq="91.225" data-note="F#2"></div>
-            <div class="piano-key white" data-freq="97.393" data-note="G2"></div>
-            <div class="piano-key black" data-freq="102.230" data-note="G#2"></div>
-            <div class="piano-key white" data-freq="108.960" data-note="A2"></div>
-            <div class="piano-key black" data-freq="114.183" data-note="A#2"></div>
-            <div class="piano-key white" data-freq="122.813" data-note="B2"></div>
-            <div class="piano-key white" data-freq="130.813" data-note="C3"></div>
+            <div class="key-group">
+                <div class="piano-key white" data-freq="65.407" data-note="C2">C</div>
+                <div class="piano-key black" data-freq="68.780" data-note="C#2"></div>
+            </div>
+            <div class="key-group">
+                <div class="piano-key white" data-freq="72.822" data-note="D2">D</div>
+                <div class="piano-key black" data-freq="76.393" data-note="D#2"></div>
+            </div>
+            <div class="key-group">
+                <div class="piano-key white" data-freq="81.888" data-note="E2">E</div>
+            </div>
+            <div class="key-group">
+                <div class="piano-key white" data-freq="86.818" data-note="F2">F</div>
+                <div class="piano-key black" data-freq="91.225" data-note="F#2"></div>
+            </div>
+            <div class="key-group">
+                <div class="piano-key white" data-freq="97.393" data-note="G2">G</div>
+                <div class="piano-key black" data-freq="102.230" data-note="G#2"></div>
+            </div>
+            <div class="key-group">
+                <div class="piano-key white" data-freq="108.960" data-note="A2">A</div>
+                <div class="piano-key black" data-freq="114.183" data-note="A#2"></div>
+            </div>
+            <div class="key-group">
+                <div class="piano-key white" data-freq="122.813" data-note="B2">B</div>
+            </div>
+            <div class="key-group">
+                <div class="piano-key white" data-freq="130.813" data-note="C3">C</div>
+            </div>
         </div>
     </div>
 

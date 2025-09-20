@@ -3,11 +3,19 @@ class RoomtoneAnalyser {
         this.audioContext = null;
         this.analyser = null;
         this.microphone = null;
+        this.mediaStream = null;
         this.animationId = null;
         this.isRunning = false;
 
         this.spectrumCanvas = document.getElementById('spectrum');
         this.spectrumCtx = this.spectrumCanvas.getContext('2d');
+
+        this.toneWaveCanvas = document.getElementById('toneWave');
+        this.toneWaveCtx = this.toneWaveCanvas.getContext('2d');
+
+        this.outputWaveCanvas = document.getElementById('outputWaveform');
+        this.outputWaveCtx = this.outputWaveCanvas.getContext('2d');
+        this.outputAnalyser = null;
 
         this.toggleBtn = document.getElementById('toggleBtn');
         this.muteBtn = document.getElementById('muteBtn');
@@ -39,8 +47,31 @@ class RoomtoneAnalyser {
         this.currentToneKey = null;
         this.harmonicOscillators = new Map(); // Track individual harmonic oscillators
         this.settledFrequencies = new Map(); // Track frequencies that have settled
+        this.toneStartTime = null; // Track when current tone started
+        this.toneDuration = 10000; // 10 seconds
+        this.fadeOutDuration = 2000; // 2 second fade out
+
+        // Background noise sampling
+        this.audioRecorder = null;
+        this.recordedChunks = [];
+        this.isRecording = false;
+        this.recordingStartTime = null;
+        this.recordingDuration = 10000; // 10 seconds
+        this.reversedAudioBuffer = null;
+
+        // Frequency tooltip
+        this.tooltip = null;
+        this.mouseX = 0;
+        this.mouseY = 0;
+        this.showTooltip = false;
+
+        // Draggable threshold
+        this.isDraggingThreshold = false;
+        this.thresholdValue = 128; // Default threshold
+
 
         this.setupCanvases();
+        this.setupTooltip();
         this.bindEvents();
     }
 
@@ -53,6 +84,124 @@ class RoomtoneAnalyser {
 
         resize();
         window.addEventListener('resize', resize);
+    }
+
+    setupTooltip() {
+        // Create tooltip element
+        this.tooltip = document.createElement('div');
+        this.tooltip.id = 'frequency-tooltip';
+        this.tooltip.style.cssText = `
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            white-space: nowrap;
+        `;
+        document.body.appendChild(this.tooltip);
+
+        // Add mouse event listeners to spectrum canvas
+        this.spectrumCanvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.spectrumCanvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.spectrumCanvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        this.spectrumCanvas.addEventListener('mouseenter', () => this.showTooltip = true);
+        this.spectrumCanvas.addEventListener('mouseleave', () => {
+            this.showTooltip = false;
+            this.tooltip.style.display = 'none';
+            this.isDraggingThreshold = false;
+        });
+    }
+
+    handleMouseMove(event) {
+        if (!this.audioContext) return;
+
+        const rect = this.spectrumCanvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        if (this.isDraggingThreshold) {
+            // Update threshold based on y position, using same scale as visual line
+            const height = this.spectrumCanvas.offsetHeight;
+            const normalizedY = Math.max(0, Math.min(1, y / height));
+            // Account for the 0.8 height scaling used in the visual display
+            this.thresholdValue = Math.round((1 - normalizedY) * 255 / 0.8); // Invert Y and scale to match visual
+
+            // Update cursor
+            this.spectrumCanvas.style.cursor = 'ns-resize';
+
+            // Don't show frequency tooltip while dragging
+            this.tooltip.style.display = 'none';
+            return;
+        }
+
+        // Check if mouse is near threshold line
+        const isNearThreshold = this.isNearThresholdLine(y);
+
+        if (isNearThreshold) {
+            this.spectrumCanvas.style.cursor = 'ns-resize';
+            // Show threshold value with drag indicator
+            this.tooltip.innerHTML = `↕ Threshold: ${this.thresholdValue}`;
+            this.tooltip.style.left = (event.clientX + 10) + 'px';
+            this.tooltip.style.top = (event.clientY - 30) + 'px';
+            this.tooltip.style.display = 'block';
+        } else {
+            this.spectrumCanvas.style.cursor = 'default';
+
+            if (this.showTooltip) {
+                // Convert canvas position to frequency
+                const frequency = this.getFrequencyFromX(x);
+                const note = this.frequencyToNote(frequency);
+
+                // Update tooltip content and position
+                this.tooltip.innerHTML = `${frequency.toFixed(1)} Hz<br>${note}`;
+                this.tooltip.style.left = (event.clientX + 10) + 'px';
+                this.tooltip.style.top = (event.clientY - 30) + 'px';
+                this.tooltip.style.display = 'block';
+            }
+        }
+    }
+
+    handleMouseDown(event) {
+        const rect = this.spectrumCanvas.getBoundingClientRect();
+        const y = event.clientY - rect.top;
+
+        if (this.isNearThresholdLine(y)) {
+            this.isDraggingThreshold = true;
+            this.showTooltip = false;
+            event.preventDefault();
+        }
+    }
+
+    handleMouseUp(event) {
+        this.isDraggingThreshold = false;
+        this.spectrumCanvas.style.cursor = 'default';
+        this.showTooltip = true;
+    }
+
+    isNearThresholdLine(mouseY) {
+        const height = this.spectrumCanvas.offsetHeight;
+        // Use the same calculation as drawThresholdLine
+        const thresholdY = height - (height * 0.8 * (this.thresholdValue/255));
+        return Math.abs(mouseY - thresholdY) < 10; // 10px tolerance
+    }
+
+    getFrequencyFromX(x) {
+        const width = this.spectrumCanvas.offsetWidth;
+        const nyquist = this.audioContext.sampleRate / 2;
+
+        // Use logarithmic scale (same as spectrum display)
+        const minFreq = 20;
+        const maxFreq = nyquist;
+        const logMin = Math.log10(minFreq);
+        const logMax = Math.log10(maxFreq);
+
+        const logFreq = logMin + (x / width) * (logMax - logMin);
+        return Math.pow(10, logFreq);
     }
 
     bindEvents() {
@@ -160,6 +309,7 @@ class RoomtoneAnalyser {
                 }
             });
 
+            this.mediaStream = stream;
             this.microphone = this.audioContext.createMediaStreamSource(stream);
 
             this.analyser = this.audioContext.createAnalyser();
@@ -178,7 +328,6 @@ class RoomtoneAnalyser {
             this.muteBtn.style.display = 'inline-block';
             this.piano.style.display = 'flex';
 
-            console.log('Audio analysis started successfully');
             this.draw();
         } catch (error) {
             console.error('Error accessing microphone:', error);
@@ -197,9 +346,17 @@ class RoomtoneAnalyser {
             cancelAnimationFrame(this.animationId);
         }
 
+        // Hide tooltip
+        if (this.tooltip) {
+            this.tooltip.style.display = 'none';
+        }
+
         if (this.microphone) {
             this.microphone.disconnect();
-            this.microphone.mediaStream.getTracks().forEach(track => track.stop());
+        }
+
+        if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach(track => track.stop());
         }
 
         if (this.audioContext) {
@@ -222,6 +379,56 @@ class RoomtoneAnalyser {
 
         if (this.gainNode) {
             this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : 0.1, this.audioContext.currentTime);
+        }
+    }
+
+
+    playPeakTone(frequency, amplitude) {
+        if (!this.audioContext || this.isMuted) return;
+
+        try {
+            // Fade out any existing primary peak tone
+            if (this.currentPrimaryPeakGain) {
+                this.currentPrimaryPeakGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
+            }
+
+            // Create a quick tone that matches the detected peak
+            const peakOsc = this.audioContext.createOscillator();
+            const peakGain = this.audioContext.createGain();
+
+            peakOsc.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+            peakOsc.type = 'sine';
+
+            // Volume based on peak strength
+            const volume = Math.min((amplitude / 255) * 0.15, 0.1);
+            peakGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            peakGain.gain.exponentialRampToValueAtTime(volume, this.audioContext.currentTime + 2.0); // Very slow, meditative swell
+            peakGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 2.5); // Much longer fade out
+
+            // Connect through reverb for ambient effect
+            peakOsc.connect(peakGain);
+            if (this.reverbNode) {
+                peakGain.connect(this.reverbNode);
+            } else {
+                peakGain.connect(this.audioContext.destination);
+            }
+
+            // Store reference to current primary peak for fading
+            this.currentPrimaryPeakGain = peakGain;
+
+            peakOsc.start();
+            peakOsc.stop(this.audioContext.currentTime + 2.6); // Longer total duration
+
+            // Clear reference after tone ends
+            setTimeout(() => {
+                if (this.currentPrimaryPeakGain === peakGain) {
+                    this.currentPrimaryPeakGain = null;
+                }
+            }, 2700);
+
+
+        } catch (error) {
+            console.error('Error playing peak tone:', error);
         }
     }
 
@@ -289,7 +496,6 @@ class RoomtoneAnalyser {
             harmonicOsc1.start();
             harmonicOsc2.start();
 
-            console.log(`Playing piano key: ${note} at ${frequency}Hz`);
 
             this.activePianoTones.set(frequency, {
                 oscillators: [fundamentalOsc, harmonicOsc1, harmonicOsc2],
@@ -311,14 +517,15 @@ class RoomtoneAnalyser {
 
         const tone = this.activePianoTones.get(frequency);
 
-        // Quick release for all gain nodes
+        // Sustained release for realistic piano sound
+        const sustainTime = 2.5; // 2.5 second sustain
         if (tone.gains) {
             tone.gains.forEach(gain => {
-                gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + sustainTime);
             });
         } else if (tone.gain) {
             // Fallback for old single-oscillator format
-            tone.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+            tone.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + sustainTime);
         }
 
         setTimeout(() => {
@@ -333,7 +540,7 @@ class RoomtoneAnalyser {
                 // Already stopped
             }
             this.activePianoTones.delete(frequency);
-        }, 150);
+        }, sustainTime * 1000 + 100); // Convert to milliseconds and add buffer
 
         keyElement.style.transform = '';
     }
@@ -347,8 +554,51 @@ class RoomtoneAnalyser {
         this.analyser.getByteFrequencyData(frequencyData);
 
         this.drawSpectrum(frequencyData);
+        this.drawOutputWaveform();
 
         this.animationId = requestAnimationFrame(() => this.draw());
+    }
+
+    drawOutputWaveform() {
+        if (!this.outputAnalyser) return;
+
+        const bufferLength = this.outputAnalyser.fftSize;
+        const dataArray = new Uint8Array(bufferLength);
+        this.outputAnalyser.getByteTimeDomainData(dataArray);
+
+        const width = this.outputWaveCanvas.width;
+        const height = this.outputWaveCanvas.height;
+
+        // Clear canvas
+        this.outputWaveCtx.clearRect(0, 0, width, height);
+
+        // Draw waveform
+        this.outputWaveCtx.lineWidth = 2;
+        this.outputWaveCtx.strokeStyle = '#4a9eff';
+        this.outputWaveCtx.beginPath();
+
+        const sliceWidth = width / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * height / 2;
+
+            if (i === 0) {
+                this.outputWaveCtx.moveTo(x, y);
+            } else {
+                this.outputWaveCtx.lineTo(x, y);
+            }
+
+            x += sliceWidth;
+        }
+
+        this.outputWaveCtx.stroke();
+
+        // Add label
+        this.outputWaveCtx.font = '10px monospace';
+        this.outputWaveCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        this.outputWaveCtx.fillText('Output', 5, 15);
     }
 
     drawSpectrum(data) {
@@ -392,7 +642,7 @@ class RoomtoneAnalyser {
                 const barHeight = this.smoothedAmplitudes[bin] * height * 0.8;
 
                 // Different color when above peak detection threshold
-                if (data[bin] > 128 && freq > 80) {
+                if (data[bin] > this.thresholdValue && freq > 20) {
                     // Brighter, more saturated color for peaks
                     this.spectrumCtx.fillStyle = `hsl(${hue2}, 100%, 75%)`;
                 } else {
@@ -403,14 +653,15 @@ class RoomtoneAnalyser {
                 // Draw rounded rectangle for smoother appearance
                 this.drawRoundedRect(x, height - barHeight, barWidth - 1, barHeight, 2);
 
-                // Only analyze peaks above threshold (about 50% of scale)
-                if (data[bin] > 128 && freq > 80) {
+                // Only analyze peaks above threshold
+                if (data[bin] > this.thresholdValue && freq > 20) {
                     peaks.push({
                         value: data[bin],
                         freq: freq,
                         x: x,
                         isGenerationZone: freq < 500
                     });
+
                 }
             }
         }
@@ -426,7 +677,7 @@ class RoomtoneAnalyser {
 
         this.drawCOctaveLabels(); // Show C octave markers
         // this.drawFrequencySeparator(); // Disabled for cleaner look
-        // this.drawThresholdLine(); // Disabled for cleaner look
+        this.drawThresholdLine(); // Show draggable threshold line
 
         // Always detect dominant key from all available data
         const analysisZonePeaks = prominentPeaks.map(peak => ({
@@ -437,7 +688,6 @@ class RoomtoneAnalyser {
         const roomModeData = this.roomModes.map(m => ({freq: m.frequency, value: m.strength}));
         const allKeyData = [...analysisZonePeaks, ...roomModeData];
 
-        console.log(`Key detection input: ${analysisZonePeaks.length} peaks, ${roomModeData.length} room modes`);
 
         // Check if we have any meaningful peaks (not just prominent peaks array length)
         const hasSignificantPeaks = prominentPeaks.length > 0 && prominentPeaks[0].value >= 128;
@@ -446,7 +696,8 @@ class RoomtoneAnalyser {
         const dominantKey = hasSignificantPeaks ? this.detectDominantKey(allKeyData) : null;
         const resonanceStrength = this.calculateResonanceStrength(prominentPeaks, this.roomModes);
 
-        console.log(`Detected key: ${dominantKey}, strength: ${resonanceStrength.toFixed(3)}`);
+        if (hasSignificantPeaks) {
+        }
 
         // Draw the dominant key in the center
         this.drawKeyIndicator(width / 2, height / 2, dominantKey, resonanceStrength);
@@ -457,6 +708,8 @@ class RoomtoneAnalyser {
         // Note: Active notes display removed
 
         // Generate low drone tone based on detected key
+        if (dominantKey && resonanceStrength > 0.2) {
+        }
         this.updateToneGeneration(dominantKey, resonanceStrength);
 
         const currentTime = Date.now();
@@ -464,7 +717,21 @@ class RoomtoneAnalyser {
         if (hasSignificantPeaks) {
             // Use the strongest prominent peak for the main indicator
             const mainPeak = prominentPeaks[0];
-            console.log(`Main peak: ${mainPeak.freq.toFixed(1)}Hz (${this.frequencyToNote(mainPeak.freq)}), value: ${mainPeak.value}`);
+
+            // Generate immediate tone for strong peaks
+            if (mainPeak.value > this.thresholdValue * 1.5) { // 1.5x threshold for strong peaks
+                this.playPeakTone(mainPeak.freq, mainPeak.value);
+
+                // Play secondary peak if it exists and is strong enough
+                if (prominentPeaks.length > 1) {
+                    const secondaryPeak = prominentPeaks[1];
+                    if (secondaryPeak.value > this.thresholdValue * 1.2) { // Lower threshold for secondary
+                        setTimeout(() => {
+                            this.playPeakTone(secondaryPeak.freq, secondaryPeak.value * 0.7); // Lower volume
+                        }, 500); // Delay secondary peak by 500ms
+                    }
+                }
+            }
 
             this.smoothedPeakFreq = this.smoothedPeakFreq * this.smoothingFactor + mainPeak.freq * (1 - this.smoothingFactor);
             this.smoothedPeakX = this.smoothedPeakX * this.smoothingFactor + mainPeak.x * (1 - this.smoothingFactor);
@@ -502,7 +769,6 @@ class RoomtoneAnalyser {
             const fadeStartDelay = 500; // Start fading after 500ms
             const fadeOutDuration = 1500; // Fade out over 1.5 seconds
 
-            console.log(`No peaks: time since last peak: ${timeSinceLastPeak}ms, fade opacity: ${this.peakFadeOpacity.toFixed(2)}`);
 
             if (timeSinceLastPeak > fadeStartDelay) {
                 const fadeProgress = Math.min((timeSinceLastPeak - fadeStartDelay) / fadeOutDuration, 1);
@@ -584,12 +850,8 @@ class RoomtoneAnalyser {
         const minDistance = 50; // Minimum frequency separation
 
         for (const peak of peaks) {
-            // Debug B2 range (around 123Hz)
-            if (peak.freq >= 120 && peak.freq <= 130) {
-                console.log(`B2 peak detected: ${peak.freq.toFixed(1)}Hz, value: ${peak.value}`);
-            }
 
-            if (peak.value < 128) break; // Higher threshold to ignore noise
+            if (peak.value < this.thresholdValue) break; // Use dynamic threshold
 
             // Check if this peak is far enough from already selected peaks
             // Increased separation to prevent FFT curve shoulders appearing as separate peaks
@@ -737,6 +999,52 @@ class RoomtoneAnalyser {
             possibleDimensions: dimensions.map(d => d.toFixed(2) + 'm'),
             roomModes: this.roomModes
         };
+    }
+
+    showToneWaveform() {
+        this.toneWaveCanvas.style.display = 'block';
+        this.animateToneWaveform();
+    }
+
+    hideToneWaveform() {
+        this.toneWaveCanvas.style.display = 'none';
+    }
+
+    animateToneWaveform() {
+        if (!this.toneStartTime || this.toneWaveCanvas.style.display === 'none') return;
+
+        const width = this.toneWaveCanvas.width;
+        const height = this.toneWaveCanvas.height;
+        const centerY = height / 2;
+
+        // Clear canvas
+        this.toneWaveCtx.clearRect(0, 0, width, height);
+
+        // Calculate wave parameters based on current time
+        const time = Date.now() * 0.001; // Convert to seconds
+        const frequency = 2; // Slow wave for visual appeal
+        const amplitude = height * 0.3;
+
+        // Draw sine wave
+        this.toneWaveCtx.strokeStyle = 'rgba(74, 158, 255, 0.8)';
+        this.toneWaveCtx.lineWidth = 2;
+        this.toneWaveCtx.beginPath();
+
+        for (let x = 0; x < width; x++) {
+            const y = centerY + Math.sin((x / width) * Math.PI * 8 + time * frequency) * amplitude;
+            if (x === 0) {
+                this.toneWaveCtx.moveTo(x, y);
+            } else {
+                this.toneWaveCtx.lineTo(x, y);
+            }
+        }
+
+        this.toneWaveCtx.stroke();
+
+        // Continue animation if tone is still playing
+        if (this.toneStartTime) {
+            requestAnimationFrame(() => this.animateToneWaveform());
+        }
     }
 
     drawCOctaveLabels() {
@@ -1012,50 +1320,128 @@ class RoomtoneAnalyser {
     }
 
     detectDominantKey(allPeaks) {
-        if (allPeaks.length === 0) return null;
+        if (allPeaks.length < 2) return null; // Need at least 2 peaks for harmonic analysis
 
-        // Vallotti temperament frequencies for key detection
+        // Convert peaks to note names with confidence
+        const detectedNotes = this.analyzeNotesFromPeaks(allPeaks);
+
+        if (detectedNotes.length < 2) return null;
+
+
+        // Analyze scale patterns to determine key and mode
+        const scaleAnalysis = this.analyzeScalePattern(detectedNotes);
+
+
+        return scaleAnalysis.key;
+    }
+
+    analyzeNotesFromPeaks(peaks) {
         const C4_base = 261.626;
         const vallottiDeviations = [0, -5.86, -3.91, -9.77, -1.96, -1.96, -7.82, -1.96, -7.82, -3.91, -9.77, -1.96];
-
-        const noteFrequencies = {};
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
-        noteNames.forEach((noteName, noteIndex) => {
-            noteFrequencies[noteName] = [];
-            // Generate 5 octaves for each note (C1 to C6)
-            for (let oct = 1; oct <= 5; oct++) {
-                const octaveMultiplier = Math.pow(2, oct - 4); // Relative to C4
-                const equalTempFreq = C4_base * Math.pow(2, noteIndex/12) * octaveMultiplier;
-                const vallottiFreq = equalTempFreq * Math.pow(2, vallottiDeviations[noteIndex]/1200);
-                noteFrequencies[noteName].push(vallottiFreq);
+        const detectedNotes = [];
+
+        peaks.forEach(peak => {
+            let bestNote = null;
+            let bestConfidence = 0;
+
+            noteNames.forEach((noteName, noteIndex) => {
+                // Check multiple octaves
+                for (let oct = 1; oct <= 6; oct++) {
+                    const octaveMultiplier = Math.pow(2, oct - 4);
+                    const equalTempFreq = C4_base * Math.pow(2, noteIndex/12) * octaveMultiplier;
+                    const vallottiFreq = equalTempFreq * Math.pow(2, vallottiDeviations[noteIndex]/1200);
+
+                    const distance = Math.abs(Math.log2(peak.freq / vallottiFreq));
+                    if (distance < 0.08) { // Tighter tolerance for note detection
+                        const confidence = (peak.value || 100) * (1 - distance * 12.5);
+                        if (confidence > bestConfidence) {
+                            bestNote = noteName;
+                            bestConfidence = confidence;
+                        }
+                    }
+                }
+            });
+
+            if (bestNote && bestConfidence > 30) {
+                detectedNotes.push({
+                    note: bestNote,
+                    confidence: bestConfidence,
+                    freq: peak.freq
+                });
             }
         });
 
-        const keyScores = {};
+        // Sort by confidence and remove duplicates
+        return detectedNotes
+            .sort((a, b) => b.confidence - a.confidence)
+            .filter((note, index, arr) =>
+                arr.findIndex(n => n.note === note.note) === index
+            )
+            .slice(0, 6); // Keep top 6 most confident notes
+    }
 
-        Object.keys(noteFrequencies).forEach(key => {
-            keyScores[key] = 0;
+    analyzeScalePattern(detectedNotes) {
+        if (detectedNotes.length < 2) return { key: null, mode: 'unknown', confidence: 0 };
 
-            allPeaks.forEach(peak => {
-                const closestNote = noteFrequencies[key].reduce((closest, freq) => {
-                    const currentDistance = Math.abs(Math.log2(peak.freq / freq));
-                    const closestDistance = Math.abs(Math.log2(peak.freq / closest));
-                    return currentDistance < closestDistance ? freq : closest;
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+        // Convert notes to semitone numbers
+        const noteSemitones = detectedNotes.map(n => ({
+            semitone: noteNames.indexOf(n.note),
+            confidence: n.confidence
+        }));
+
+        // Define scale patterns (intervals from root)
+        const scalePatterns = {
+            'major': [0, 2, 4, 5, 7, 9, 11],
+            'minor': [0, 2, 3, 5, 7, 8, 10],
+            'dorian': [0, 2, 3, 5, 7, 9, 10],
+            'mixolydian': [0, 2, 4, 5, 7, 9, 10],
+            'pentatonic': [0, 2, 4, 7, 9]
+        };
+
+        let bestMatch = { key: null, mode: 'unknown', confidence: 0 };
+
+        // Try each possible root note
+        noteNames.forEach((rootNote, rootSemitone) => {
+            Object.entries(scalePatterns).forEach(([modeName, pattern]) => {
+                let matchScore = 0;
+                let totalWeight = 0;
+
+                noteSemitones.forEach(({ semitone, confidence }) => {
+                    const intervalFromRoot = (semitone - rootSemitone + 12) % 12;
+                    const weight = confidence;
+                    totalWeight += weight;
+
+                    if (pattern.includes(intervalFromRoot)) {
+                        // Bonus for strong scale tones
+                        const scaleImportance = pattern.indexOf(intervalFromRoot) === 0 ? 2.0 : // Root
+                                               pattern.indexOf(intervalFromRoot) === 4 ? 1.8 : // Fifth
+                                               pattern.indexOf(intervalFromRoot) === 2 ? 1.5 : // Third
+                                               1.0; // Other scale tones
+                        matchScore += weight * scaleImportance;
+                    } else {
+                        // Penalty for non-scale tones
+                        matchScore -= weight * 0.5;
+                    }
                 });
 
-                const distance = Math.abs(Math.log2(peak.freq / closestNote));
-                if (distance < 0.1) {
-                    keyScores[key] += (peak.value || 100) * (1 - distance * 10);
+                const normalizedScore = totalWeight > 0 ? matchScore / totalWeight : 0;
+
+                if (normalizedScore > bestMatch.confidence) {
+                    bestMatch = {
+                        key: `${rootNote} ${modeName}`,
+                        mode: modeName,
+                        confidence: normalizedScore
+                    };
                 }
             });
         });
 
-        const bestKey = Object.keys(keyScores).reduce((a, b) =>
-            keyScores[a] > keyScores[b] ? a : b
-        );
-
-        return keyScores[bestKey] > 50 ? bestKey : null;
+        // Only return if we have reasonable confidence
+        return bestMatch.confidence > 50 ? bestMatch : { key: null, mode: 'unknown', confidence: 0 };
     }
 
     calculateResonanceStrength(peaks, modes) {
@@ -1111,8 +1497,8 @@ class RoomtoneAnalyser {
         const width = this.spectrumCanvas.offsetWidth;
         const height = this.spectrumCanvas.offsetHeight;
 
-        // Threshold line at about 50% of scale (corresponds to value 128/255)
-        const thresholdY = height - (height * 0.8 * (128/255));
+        // Dynamic threshold line based on current threshold value
+        const thresholdY = height - (height * 0.8 * (this.thresholdValue/255));
 
         this.spectrumCtx.save();
         this.spectrumCtx.strokeStyle = 'rgba(255, 165, 0, 0.6)'; // Orange threshold line
@@ -1140,11 +1526,137 @@ class RoomtoneAnalyser {
 
         // Create gain node for volume control
         this.gainNode = this.audioContext.createGain();
-        this.gainNode.gain.setValueAtTime(0.05, this.audioContext.currentTime); // Start very quiet
+        this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : 0.2, this.audioContext.currentTime); // Louder default volume
 
-        // Connect: oscillators -> gain -> reverb -> destination
+        // Create output analyser for waveform display
+        this.outputAnalyser = this.audioContext.createAnalyser();
+        this.outputAnalyser.fftSize = 1024;
+
+        // Connect: oscillators -> gain -> reverb -> analyser -> destination
         this.gainNode.connect(this.reverbNode);
-        this.reverbNode.connect(this.audioContext.destination);
+        this.reverbNode.connect(this.outputAnalyser);
+        this.outputAnalyser.connect(this.audioContext.destination);
+
+        // Setup background recording
+        this.setupBackgroundRecording();
+    }
+
+    setupBackgroundRecording() {
+        if (!this.mediaStream) return;
+
+        try {
+            // Create MediaRecorder from the microphone stream
+            this.audioRecorder = new MediaRecorder(this.mediaStream, {
+                mimeType: 'audio/webm'
+            });
+
+            this.audioRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.recordedChunks.push(event.data);
+                }
+            };
+
+            this.audioRecorder.onstop = () => {
+                this.processRecordedAudio();
+            };
+
+        } catch (error) {
+            console.warn('Could not setup background recording:', error);
+        }
+    }
+
+    startBackgroundRecording() {
+        if (!this.audioRecorder || this.isRecording) return;
+
+        this.recordedChunks = [];
+        this.isRecording = true;
+        this.recordingStartTime = Date.now();
+
+        this.audioRecorder.start();
+
+        // Stop recording after 10 seconds
+        setTimeout(() => {
+            this.stopBackgroundRecording();
+        }, this.recordingDuration);
+    }
+
+    stopBackgroundRecording() {
+        if (!this.audioRecorder || !this.isRecording) return;
+
+        this.audioRecorder.stop();
+        this.isRecording = false;
+    }
+
+    async processRecordedAudio() {
+        if (this.recordedChunks.length === 0) return;
+
+        try {
+            // Create blob from recorded chunks
+            const audioBlob = new Blob(this.recordedChunks, { type: 'audio/webm' });
+
+            // Convert to ArrayBuffer
+            const arrayBuffer = await audioBlob.arrayBuffer();
+
+            // Decode audio data
+            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+            // Reverse the audio buffer
+            this.reversedAudioBuffer = this.reverseAudioBuffer(audioBuffer);
+
+
+            // Play the reversed audio after a short delay
+            setTimeout(() => {
+                this.playReversedAudio();
+            }, 1000);
+
+        } catch (error) {
+            console.warn('Error processing recorded audio:', error);
+        }
+    }
+
+    reverseAudioBuffer(audioBuffer) {
+        const reversedBuffer = this.audioContext.createBuffer(
+            audioBuffer.numberOfChannels,
+            audioBuffer.length,
+            audioBuffer.sampleRate
+        );
+
+        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+            const originalData = audioBuffer.getChannelData(channel);
+            const reversedData = reversedBuffer.getChannelData(channel);
+
+            // Reverse the samples
+            for (let i = 0; i < originalData.length; i++) {
+                reversedData[i] = originalData[originalData.length - 1 - i];
+            }
+        }
+
+        return reversedBuffer;
+    }
+
+    playReversedAudio() {
+        if (!this.reversedAudioBuffer || this.isMuted) return;
+
+        try {
+            const source = this.audioContext.createBufferSource();
+            const gain = this.audioContext.createGain();
+
+            source.buffer = this.reversedAudioBuffer;
+
+            // Set low volume for ambient effect
+            gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.1, this.audioContext.currentTime + 1); // Fade in
+            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + this.reversedAudioBuffer.duration - 1); // Fade out
+
+            // Connect: source -> gain -> reverb -> destination
+            source.connect(gain);
+            gain.connect(this.reverbNode);
+
+            source.start();
+
+        } catch (error) {
+            console.warn('Error playing reversed audio:', error);
+        }
     }
 
     createReverbImpulse() {
@@ -1205,7 +1717,6 @@ class RoomtoneAnalyser {
 
             // Generate tone for settled frequencies
             if (age > settleDuration && !data.hasGeneratedTone && freq < 500) {
-                console.log(`Starting harmonic tone for ${freq.toFixed(1)}Hz (settled for ${(age/1000).toFixed(1)}s)`);
                 this.startHarmonicTone(freq, data.strength);
                 data.hasGeneratedTone = true;
             }
@@ -1228,7 +1739,6 @@ class RoomtoneAnalyser {
             const targetVolume = Math.min(safeStrength * 0.1, 0.15); // Calculate target volume
             const finalVolume = Math.max(targetVolume, 0.01); // Ensure minimum 0.01 volume
 
-            console.log(`Harmonic tone volumes: strength=${strength}, safe=${safeStrength}, target=${targetVolume}, final=${finalVolume}`);
 
             harmonicGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
             harmonicGain.gain.exponentialRampToValueAtTime(finalVolume, this.audioContext.currentTime + 2);
@@ -1315,6 +1825,29 @@ class RoomtoneAnalyser {
     }
 
     updateToneGeneration(key, strength) {
+        const currentTime = Date.now();
+
+        // Check if current tone should be fading out or stopping
+        if (this.toneStartTime && this.currentToneKey) {
+            const elapsed = currentTime - this.toneStartTime;
+            const fadeStartTime = this.toneDuration - this.fadeOutDuration;
+
+            if (elapsed >= this.toneDuration) {
+                // Tone duration exceeded, stop completely
+                this.stopToneGeneration();
+                return;
+            } else if (elapsed >= fadeStartTime) {
+                // Start fade out
+                if (this.gainNode) {
+                    const fadeProgress = (elapsed - fadeStartTime) / this.fadeOutDuration;
+                    const currentVolume = Math.min(strength * 0.3, 0.2);
+                    const targetVolume = currentVolume * (1 - fadeProgress);
+                    this.gainNode.gain.exponentialRampToValueAtTime(Math.max(targetVolume, 0.001), this.audioContext.currentTime + 0.1);
+                }
+                return;
+            }
+        }
+
         if (!key || strength < 0.2 || this.isMuted) {
             // Not enough signal strength or muted, fade out
             if (this.gainNode) {
@@ -1323,24 +1856,37 @@ class RoomtoneAnalyser {
             return;
         }
 
-        // Only update if key changed significantly
-        if (key !== this.currentToneKey) {
+        // Only start new tone if key changed significantly or no tone is playing
+        if (key !== this.currentToneKey || !this.toneStartTime) {
             this.currentToneKey = key;
+            this.toneStartTime = currentTime;
             this.stopToneGeneration();
             this.startToneGeneration(key, strength);
+
+            // Start background recording when tone begins
+            this.startBackgroundRecording();
+
+
+            // Show tone waveform visualization
+            this.showToneWaveform();
         } else {
-            // Update volume based on strength
-            if (this.gainNode) {
-                const targetVolume = Math.min(strength * 0.3, 0.2); // Keep it subtle
-                this.gainNode.gain.exponentialRampToValueAtTime(targetVolume, this.audioContext.currentTime + 0.1);
+            // Update volume based on strength (only if not in fade out period)
+            if (this.gainNode && this.toneStartTime) {
+                const elapsed = currentTime - this.toneStartTime;
+                const fadeStartTime = this.toneDuration - this.fadeOutDuration;
+
+                if (elapsed < fadeStartTime) {
+                    const targetVolume = Math.min(strength * 0.3, 0.2); // Keep it subtle
+                    this.gainNode.gain.exponentialRampToValueAtTime(targetVolume, this.audioContext.currentTime + 0.1);
+                }
             }
         }
     }
 
     startToneGeneration(key, strength) {
-        if (!this.audioContext || !this.gainNode) return;
-
-        console.log(`Starting drone for key: ${key}`);
+        if (!this.audioContext || !this.gainNode) {
+            return;
+        }
 
         // Generate Vallotti-tuned low drone frequencies for the detected key
         const droneFrequencies = this.getVallottiDroneFrequencies(key);
@@ -1353,10 +1899,11 @@ class RoomtoneAnalyser {
             oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
 
-            // Very subtle volume - just a gentle foundation
-            const volume = (index === 0) ? 0.08 : 0.04; // Root note slightly louder
+            // More audible volume for testing
+            const volume = (index === 0) ? 0.3 : 0.15; // Root note slightly louder
             oscGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
             oscGain.gain.exponentialRampToValueAtTime(volume, this.audioContext.currentTime + 2); // Slow fade in
+
 
             oscillator.connect(oscGain);
             oscGain.connect(this.gainNode);
@@ -1402,7 +1949,6 @@ class RoomtoneAnalyser {
             }
         }
 
-        console.log(`Drone frequencies for ${key}:`, drones);
         return drones.slice(0, 4); // Limit to 4 drones max
     }
 
@@ -1416,6 +1962,10 @@ class RoomtoneAnalyser {
         });
         this.oscillators = [];
         this.currentToneKey = null;
+        this.toneStartTime = null;
+
+        // Hide tone waveform visualization
+        this.hideToneWaveform();
     }
 
     getKeyBassFrequencies(key) {

@@ -31,6 +31,18 @@ header {
     text-align: left;
 }
 
+.title-with-wave {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#toneWave {
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 0.8;
+}
+
 .header-controls {
     flex-shrink: 0;
     display: flex;
@@ -153,31 +165,42 @@ button:disabled {
     z-index: 100;
 }
 
+.key-group {
+    position: relative;
+    display: flex;
+}
+
 .piano-key {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.7rem;
+    font-size: 0.6rem;
     font-weight: 500;
     cursor: pointer;
     user-select: none;
     transition: all 0.1s ease;
-    width: 28px;
-    height: 60px;
-    border-radius: 4px;
-    margin: 0 1px;
+    border-radius: 3px;
 }
 
 .piano-key.white {
+    width: 32px;
+    height: 60px;
     background: #fff;
     border: 1px solid #ccc;
     color: #333;
+    z-index: 1;
 }
 
 .piano-key.black {
-    background: #333;
+    width: 20px;
+    height: 35px;
+    background: #222;
     border: 1px solid #111;
     color: #fff;
+    position: absolute;
+    top: 0;
+    right: -10px;
+    z-index: 2;
 }
 
 .piano-key.white:hover {
@@ -185,7 +208,7 @@ button:disabled {
 }
 
 .piano-key.black:hover {
-    background: #555;
+    background: #444;
 }
 
 .piano-key:active {
@@ -197,7 +220,7 @@ button:disabled {
 }
 
 .piano-key.black:active {
-    background: #222;
+    background: #111;
 }
 
 .info {
@@ -243,6 +266,11 @@ button:disabled {
 
     .title-section {
         text-align: center;
+    }
+
+    .title-with-wave {
+        flex-direction: column;
+        gap: 0.5rem;
     }
 
     h1 {

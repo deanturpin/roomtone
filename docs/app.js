@@ -355,7 +355,7 @@ class RoomtoneAnalyser {
         this.spectrumCtx.lineTo(width, height / 2);
         this.spectrumCtx.stroke();
 
-        this.drawNoteLabels();
+        // this.drawNoteLabels(); // Disabled for cleaner look
         this.drawFrequencySeparator();
         this.drawThresholdLine();
 

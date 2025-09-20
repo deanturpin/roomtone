@@ -544,16 +544,23 @@ class RoomtoneAnalyser {
         this.spectrumCtx.lineTo(x, height - 20);
         this.spectrumCtx.stroke();
 
-        // Glowing frequency label with fade support
-        const labelText = `${freq.toFixed(1)} Hz`;
+        // Glowing frequency label with fade support - split left and right
+        const freqValue = freq.toFixed(1);
+        const hzLabel = 'Hz';
 
         this.spectrumCtx.shadowColor = `rgba(255, 170, 0, ${fadeOpacity * 0.8})`;
         this.spectrumCtx.shadowBlur = 8;
         this.spectrumCtx.font = 'bold 14px monospace';
         this.spectrumCtx.fillStyle = `rgba(255, 221, 68, ${fadeOpacity})`;
-        this.spectrumCtx.textAlign = 'center';
         this.spectrumCtx.textBaseline = 'alphabetic';
-        this.spectrumCtx.fillText(labelText, x, 70);
+
+        // Frequency value to the left of the line
+        this.spectrumCtx.textAlign = 'right';
+        this.spectrumCtx.fillText(freqValue, x - 5, 70);
+
+        // Hz label to the right of the line
+        this.spectrumCtx.textAlign = 'left';
+        this.spectrumCtx.fillText(hzLabel, x + 5, 70);
 
         this.spectrumCtx.shadowBlur = 0;
         this.spectrumCtx.lineWidth = 1;

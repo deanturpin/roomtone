@@ -228,7 +228,14 @@ class RoomtoneAnalyser {
     }
 
     bindEvents() {
-        this.toggleBtn.addEventListener('click', () => this.toggle());
+        this.toggleBtn.addEventListener('click', () => {
+            console.log('Toggle button clicked!');
+            try {
+                this.toggle();
+            } catch (error) {
+                console.error('Error in toggle():', error);
+            }
+        });
         this.muteBtn.addEventListener('click', () => this.toggleMute());
         this.bindPianoEvents();
     }
@@ -308,15 +315,20 @@ class RoomtoneAnalyser {
     }
 
     toggle() {
+        console.log('Toggle called, isRunning:', this.isRunning);
         if (this.isRunning) {
+            console.log('Stopping...');
             this.stop();
         } else {
+            console.log('Starting...');
             this.start();
         }
     }
 
     async start() {
+        console.log('Start method called');
         try {
+            console.log('Creating AudioContext...');
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
             // Resume AudioContext if suspended (required by some browsers)
@@ -324,6 +336,7 @@ class RoomtoneAnalyser {
                 await this.audioContext.resume();
             }
 
+            console.log('Requesting microphone access...');
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: false,
@@ -331,6 +344,7 @@ class RoomtoneAnalyser {
                     autoGainControl: false
                 }
             });
+            console.log('Microphone access granted!');
 
             this.mediaStream = stream;
             this.microphone = this.audioContext.createMediaStreamSource(stream);
@@ -2312,6 +2326,26 @@ class RoomtoneAnalyser {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const analyser = new RoomtoneAnalyser();
-    setTimeout(() => analyser.start(), 100);
+    try {
+        const analyser = new RoomtoneAnalyser();
+        console.log('RoomtoneAnalyser initialized successfully');
+
+        // Test if button exists and is clickable
+        const toggleBtn = document.getElementById('toggleBtn');
+        if (toggleBtn) {
+            console.log('Toggle button found:', toggleBtn.textContent);
+            toggleBtn.style.cursor = 'pointer'; // Ensure it's visually clickable
+            toggleBtn.style.zIndex = '1000'; // Bring to front
+            toggleBtn.style.position = 'relative'; // Ensure it's clickable
+
+            // Test direct click binding
+            toggleBtn.addEventListener('click', () => {
+                console.log('DIRECT CLICK DETECTED!');
+            });
+        } else {
+            console.error('Toggle button not found!');
+        }
+    } catch (error) {
+        console.error('Failed to initialize RoomtoneAnalyser:', error);
+    }
 });

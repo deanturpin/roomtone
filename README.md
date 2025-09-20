@@ -93,11 +93,22 @@ The application is built around a single `RoomtoneAnalyser` class that handles:
 
 ## Use Cases
 
-- **Relaxation**: Generate calming soundscapes in any space
-- **Focus**: Consistent background atmosphere for work
-- **Travel**: Transform hotel rooms, airports, coffee shops
-- **Installation**: Site-specific generative music
-- **Musical Tool**: Discover your room's musical potential
+### Mindfulness & Wellness
+- **Yoga Classes**: Group hum sets the session's key, app provides harmonic foundation
+- **Meditation**: Gentle tonal support that adapts to natural breathing sounds
+- **Sound Healing**: Responds to singing bowls, chanting, vocal toning
+- **Group Practice**: Creates unified harmonic space from collective voice
+
+### Creative & Professional
+- **Musical Discovery**: Find your room's acoustic character and resonant frequencies
+- **Installation Art**: Site-specific generative music responding to space
+- **Focus Work**: Adaptive ambient atmosphere that responds to environmental sound
+- **Travel**: Transform any space (hotels, airports, studios) with harmonic presence
+
+### Acoustic Exploration
+- **Room Analysis**: Understand your space's natural frequency response
+- **Tuning Reference**: Vallotti temperament for historically-informed practice
+- **Harmonic Education**: Visual learning about frequency, resonance, and musical relationships
 
 ## Development Priorities
 

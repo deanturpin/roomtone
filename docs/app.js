@@ -234,27 +234,66 @@ class RoomtoneAnalyser {
         if (this.activePianoTones.has(frequency)) return; // Already playing
 
         try {
-            const oscillator = this.audioContext.createOscillator();
+            // Create piano-like sound with multiple harmonics
+            const fundamentalOsc = this.audioContext.createOscillator();
+            const harmonicOsc1 = this.audioContext.createOscillator();
+            const harmonicOsc2 = this.audioContext.createOscillator();
+
             const pianoGain = this.audioContext.createGain();
+            const harmonicGain1 = this.audioContext.createGain();
+            const harmonicGain2 = this.audioContext.createGain();
 
-            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-            oscillator.type = 'triangle'; // Softer, more musical tone
+            // Fundamental frequency - sine wave
+            fundamentalOsc.type = 'sine';
+            fundamentalOsc.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
 
-            // Gentler attack and lower volume
-            pianoGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-            pianoGain.gain.linearRampToValueAtTime(0.08, this.audioContext.currentTime + 0.05); // Slower, gentler attack
+            // Harmonics for piano-like timbre
+            harmonicOsc1.type = 'sine';
+            harmonicOsc1.frequency.setValueAtTime(frequency * 2, this.audioContext.currentTime); // Octave
 
-            oscillator.connect(pianoGain);
+            harmonicOsc2.type = 'sine';
+            harmonicOsc2.frequency.setValueAtTime(frequency * 3, this.audioContext.currentTime); // Fifth above octave
+
+            // Piano-like envelope: sharp attack, gradual decay
+            const now = this.audioContext.currentTime;
+            const attackTime = 0.01;
+            const decayTime = 1.5;
+            const sustainLevel = 0.3;
+
+            // Fundamental
+            pianoGain.gain.setValueAtTime(0, now);
+            pianoGain.gain.linearRampToValueAtTime(0.15, now + attackTime);
+            pianoGain.gain.exponentialRampToValueAtTime(sustainLevel * 0.15, now + attackTime + decayTime);
+
+            // First harmonic (quieter)
+            harmonicGain1.gain.setValueAtTime(0, now);
+            harmonicGain1.gain.linearRampToValueAtTime(0.08, now + attackTime);
+            harmonicGain1.gain.exponentialRampToValueAtTime(sustainLevel * 0.08, now + attackTime + decayTime);
+
+            // Second harmonic (even quieter)
+            harmonicGain2.gain.setValueAtTime(0, now);
+            harmonicGain2.gain.linearRampToValueAtTime(0.04, now + attackTime);
+            harmonicGain2.gain.exponentialRampToValueAtTime(sustainLevel * 0.04, now + attackTime + decayTime);
+
+            // Connect audio graph
+            fundamentalOsc.connect(pianoGain);
+            harmonicOsc1.connect(harmonicGain1);
+            harmonicOsc2.connect(harmonicGain2);
 
             // Always connect piano directly to destination to avoid feedback
             pianoGain.connect(this.audioContext.destination);
+            harmonicGain1.connect(this.audioContext.destination);
+            harmonicGain2.connect(this.audioContext.destination);
 
-            oscillator.start();
+            fundamentalOsc.start();
+            harmonicOsc1.start();
+            harmonicOsc2.start();
+
             console.log(`Playing piano key: ${note} at ${frequency}Hz`);
 
             this.activePianoTones.set(frequency, {
-                oscillator: oscillator,
-                gain: pianoGain,
+                oscillators: [fundamentalOsc, harmonicOsc1, harmonicOsc2],
+                gains: [pianoGain, harmonicGain1, harmonicGain2],
                 note: note
             });
 
@@ -272,12 +311,24 @@ class RoomtoneAnalyser {
 
         const tone = this.activePianoTones.get(frequency);
 
-        // Quick release
-        tone.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+        // Quick release for all gain nodes
+        if (tone.gains) {
+            tone.gains.forEach(gain => {
+                gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+            });
+        } else if (tone.gain) {
+            // Fallback for old single-oscillator format
+            tone.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+        }
 
         setTimeout(() => {
             try {
-                tone.oscillator.stop();
+                if (tone.oscillators) {
+                    tone.oscillators.forEach(osc => osc.stop());
+                } else if (tone.oscillator) {
+                    // Fallback for old single-oscillator format
+                    tone.oscillator.stop();
+                }
             } catch (e) {
                 // Already stopped
             }

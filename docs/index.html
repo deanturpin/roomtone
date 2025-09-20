@@ -29,15 +29,52 @@
             text-align: center;
         }
 
+        .hero-section {
+            background: radial-gradient(circle at center, rgba(0, 212, 170, 0.1) 0%, transparent 70%);
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            margin-bottom: 3rem;
+            border: 1px solid rgba(0, 212, 170, 0.1);
+        }
+
         h1 {
-            font-size: 4rem;
-            font-weight: 100;
-            letter-spacing: 0.2em;
-            margin-bottom: 1rem;
-            background: linear-gradient(45deg, #00d4aa, #00a8ff);
+            font-size: 5rem;
+            font-weight: 200;
+            letter-spacing: 0.3em;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(45deg, #00d4aa, #00a8ff, #ff6b6b);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 212, 170, 0.3);
+            animation: glow 3s ease-in-out infinite alternate;
+            position: relative;
+        }
+
+        @keyframes glow {
+            from {
+                filter: drop-shadow(0 0 10px rgba(0, 212, 170, 0.4));
+            }
+            to {
+                filter: drop-shadow(0 0 20px rgba(0, 168, 255, 0.6));
+            }
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+            animation: shimmer 4s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
 
         .subtitle {
@@ -194,7 +231,12 @@
 
         @media (max-width: 768px) {
             h1 {
-                font-size: 2.5rem;
+                font-size: 3rem;
+                letter-spacing: 0.2em;
+            }
+
+            .container {
+                padding: 1rem;
             }
 
             .version-links {
@@ -207,15 +249,24 @@
                 max-width: 300px;
             }
         }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2.2rem;
+                letter-spacing: 0.15em;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>ROOMTONE</h1>
+        <div class="hero-section">
+            <h1>ROOMTONE</h1>
 
-        <p class="subtitle">
-            Real-time frequency analyser with musical key detection and bass tone generation
-        </p>
+            <p class="subtitle">
+                Real-time frequency analyser with musical key detection and bass tone generation
+            </p>
+        </div>
 
         <p class="description">
             Every room has its own acoustic signature. ROOMTONE discovers those frequencies

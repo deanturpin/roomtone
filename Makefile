@@ -14,6 +14,7 @@ serve: update-version
 
 update-version:
 	@echo "const GIT_VERSION = '$$(git rev-parse --short HEAD)';" > docs/version.js
+	@echo "const GIT_SUMMARY = '$$(git log -1 --pretty=format:"%s")';" >> docs/version.js
 
 lint:
 	@echo "Linting Markdown files..."

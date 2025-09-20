@@ -35,6 +35,9 @@ class RoomtoneAnalyser {
         this.peakStabilityCounter = 0;
         this.peakStabilityRequired = 3; // Require 3 consecutive frames before switching
 
+        // Audio feedback control
+        this.audioFeedbackEnabled = true;
+
         // Room mode detection
         this.frequencyHistory = new Map();
         this.roomModes = [];
@@ -238,6 +241,81 @@ class RoomtoneAnalyser {
             }
         });
         this.bindPianoEvents();
+        this.bindKeyboardEvents();
+    }
+
+    bindKeyboardEvents() {
+        // Add spacebar toggle for audio feedback
+        document.addEventListener('keydown', (e) => {
+            // Only handle spacebar if we're not in an input field
+            if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                this.toggleAudioFeedback();
+            }
+        });
+    }
+
+    toggleAudioFeedback() {
+        this.audioFeedbackEnabled = !this.audioFeedbackEnabled;
+
+        // Show visual feedback
+        const message = this.audioFeedbackEnabled ? 'Audio Feedback ON' : 'Audio Feedback OFF';
+        this.showFeedbackMessage(message);
+
+        // If turning off, stop any current tones
+        if (!this.audioFeedbackEnabled) {
+            this.stopAllToneGeneration();
+        }
+    }
+
+    showFeedbackMessage(message) {
+        // Create temporary message overlay
+        const messageDiv = document.createElement('div');
+        messageDiv.textContent = message;
+        messageDiv.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(74, 158, 255, 0.9);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 10000;
+            pointer-events: none;
+        `;
+        document.body.appendChild(messageDiv);
+
+        // Remove after 2 seconds
+        setTimeout(() => {
+            document.body.removeChild(messageDiv);
+        }, 2000);
+    }
+
+    stopAllToneGeneration() {
+        // Stop peak tones
+        if (this.activePianoTones) {
+            for (const [freq, tone] of this.activePianoTones) {
+                if (tone.gains) {
+                    tone.gains.forEach(gain => {
+                        if (gain) gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+                    });
+                }
+                setTimeout(() => {
+                    if (tone.oscillators) {
+                        tone.oscillators.forEach(osc => {
+                            try { osc.stop(); } catch (e) {}
+                        });
+                    }
+                }, 150);
+            }
+            this.activePianoTones.clear();
+        }
+
+        // Stop room tone generation
+        this.stopToneGeneration();
     }
 
     bindPianoEvents() {
@@ -429,16 +507,23 @@ class RoomtoneAnalyser {
         if (!this.audioContext) return;
 
         try {
+            // Transpose detected frequencies above 500Hz down 2 octaves for bass range
+            const BASS_FREQUENCY_LIMIT = 500;
+            let playbackFrequency = frequency;
+            while (playbackFrequency > BASS_FREQUENCY_LIMIT) {
+                playbackFrequency = playbackFrequency / 4; // Down 2 octaves
+            }
+
             // Fade out any existing primary peak tone
             if (this.currentPrimaryPeakGain) {
                 this.currentPrimaryPeakGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
             }
 
-            // Create a quick tone that matches the detected peak
+            // Create a quick tone that matches the detected peak (transposed to bass range)
             const peakOsc = this.audioContext.createOscillator();
             const peakGain = this.audioContext.createGain();
 
-            peakOsc.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+            peakOsc.frequency.setValueAtTime(playbackFrequency, this.audioContext.currentTime);
             peakOsc.type = 'sine';
 
             // Volume based on peak strength
@@ -477,7 +562,10 @@ class RoomtoneAnalyser {
     createPianoTone(frequency, velocity = 1.0, note = '') {
         if (!this.audioContext) return null;
 
-        if (this.activePianoTones.has(frequency)) return null; // Already playing
+        // Play manual input (piano/MIDI) at original frequency
+        let playbackFrequency = frequency;
+
+        if (this.activePianoTones.has(playbackFrequency)) return null; // Already playing
 
         try {
             // Create piano-like sound with multiple harmonics
@@ -489,10 +577,10 @@ class RoomtoneAnalyser {
             const harmonicGain1 = this.audioContext.createGain();
             const harmonicGain2 = this.audioContext.createGain();
 
-            // Set frequencies
-            fundamentalOsc.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-            harmonicOsc1.frequency.setValueAtTime(frequency * 2, this.audioContext.currentTime); // Octave
-            harmonicOsc2.frequency.setValueAtTime(frequency * 3, this.audioContext.currentTime); // Fifth
+            // Set frequencies using the transposed frequency
+            fundamentalOsc.frequency.setValueAtTime(playbackFrequency, this.audioContext.currentTime);
+            harmonicOsc1.frequency.setValueAtTime(playbackFrequency * 2, this.audioContext.currentTime); // Octave
+            harmonicOsc2.frequency.setValueAtTime(playbackFrequency * 3, this.audioContext.currentTime); // Fifth
 
             // Piano-like waveforms
             fundamentalOsc.type = 'sawtooth';
@@ -515,9 +603,9 @@ class RoomtoneAnalyser {
             harmonicOsc1.connect(harmonicGain1);
             harmonicOsc2.connect(harmonicGain2);
 
-            pianoGain.connect(this.gainNode);
-            harmonicGain1.connect(this.gainNode);
-            harmonicGain2.connect(this.gainNode);
+            pianoGain.connect(this.audioContext.destination);
+            harmonicGain1.connect(this.audioContext.destination);
+            harmonicGain2.connect(this.audioContext.destination);
 
             fundamentalOsc.start();
             harmonicOsc1.start();
@@ -529,7 +617,7 @@ class RoomtoneAnalyser {
                 note: note
             };
 
-            this.activePianoTones.set(frequency, toneData);
+            this.activePianoTones.set(playbackFrequency, toneData);
             return toneData;
 
         } catch (error) {
@@ -555,9 +643,12 @@ class RoomtoneAnalyser {
     stopPianoKey(keyElement) {
         const frequency = parseFloat(keyElement.dataset.freq);
 
-        if (!this.activePianoTones.has(frequency)) return;
+        // Use original frequency for manual piano input
+        const playbackFrequency = frequency;
 
-        const tone = this.activePianoTones.get(frequency);
+        if (!this.activePianoTones.has(playbackFrequency)) return;
+
+        const tone = this.activePianoTones.get(playbackFrequency);
 
         // Sustained release for realistic piano sound
         const sustainTime = 2.5; // 2.5 second sustain
@@ -581,7 +672,7 @@ class RoomtoneAnalyser {
             } catch (e) {
                 // Already stopped
             }
-            this.activePianoTones.delete(frequency);
+            this.activePianoTones.delete(playbackFrequency);
         }, sustainTime * 1000 + 100); // Convert to milliseconds and add buffer
 
         keyElement.style.transform = '';
@@ -651,10 +742,16 @@ class RoomtoneAnalyser {
         this.spectrumCtx.fillStyle = 'rgb(20, 20, 30)';
         this.spectrumCtx.fillRect(0, 0, width, height);
 
-        // Draw subtle ROOMTONE background text
+        // Draw subtle ROOMTONE background text with logo gradient colors
         this.spectrumCtx.save();
         this.spectrumCtx.globalAlpha = 0.05;
-        this.spectrumCtx.fillStyle = '#ffffff';
+
+        // Create gradient that matches the logo
+        const textGradient = this.spectrumCtx.createLinearGradient(0, 0, width, height);
+        textGradient.addColorStop(0, '#4a9eff');
+        textGradient.addColorStop(1, '#00ff88');
+        this.spectrumCtx.fillStyle = textGradient;
+
         this.spectrumCtx.font = `${Math.min(width * 0.15, 120)}px Arial`;
         this.spectrumCtx.textAlign = 'center';
         this.spectrumCtx.textBaseline = 'middle';
@@ -761,7 +858,9 @@ class RoomtoneAnalyser {
         // Generate low drone tone based on detected key
         if (dominantKey && resonanceStrength > 0.2) {
         }
-        this.updateToneGeneration(dominantKey, resonanceStrength);
+        if (this.audioFeedbackEnabled) {
+            this.updateToneGeneration(dominantKey, resonanceStrength);
+        }
 
         const currentTime = Date.now();
 
@@ -772,8 +871,8 @@ class RoomtoneAnalyser {
             // Use second peak for tone generation to avoid feedback, with hysteresis
             const tonePeak = this.selectTonePeakWithHysteresis(prominentPeaks);
 
-            // Generate immediate tone for strong peaks using second peak
-            if (tonePeak.value > this.thresholdValue * 1.2) { // Slightly lower threshold for second peak
+            // Generate immediate tone for strong peaks using second peak (if feedback enabled)
+            if (this.audioFeedbackEnabled && tonePeak.value > this.thresholdValue * 1.2) { // Slightly lower threshold for second peak
                 this.playPeakTone(tonePeak.freq, tonePeak.value);
 
                 // Start background recording for reversed audio when peaks are strong
@@ -2199,8 +2298,11 @@ class RoomtoneAnalyser {
         // Convert MIDI note to frequency
         const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
 
+        // Use original frequency for MIDI input
+        const playbackFrequency = frequency;
+
         // Don't play if already active (check both MIDI notes and piano tones)
-        if (this.activeMidiNotes.has(midiNote) || this.activePianoTones.has(frequency)) return;
+        if (this.activeMidiNotes.has(midiNote) || this.activePianoTones.has(playbackFrequency)) return;
 
         // Convert MIDI note to note name for display
         const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -2214,7 +2316,8 @@ class RoomtoneAnalyser {
         if (toneData) {
             // Store MIDI note mapping for proper cleanup
             this.activeMidiNotes.set(midiNote, {
-                frequency: frequency,
+                originalFrequency: frequency,
+                playbackFrequency: playbackFrequency,
                 toneData: toneData,
                 velocity: velocity
             });
@@ -2225,7 +2328,7 @@ class RoomtoneAnalyser {
         if (!this.activeMidiNotes.has(midiNote)) return;
 
         const midiData = this.activeMidiNotes.get(midiNote);
-        const frequency = midiData.frequency;
+        const frequency = midiData.playbackFrequency;
 
         // Remove from MIDI tracking
         this.activeMidiNotes.delete(midiNote);

@@ -356,7 +356,7 @@ class RoomtoneAnalyser {
         this.spectrumCtx.stroke();
 
         // this.drawNoteLabels(); // Disabled for cleaner look
-        this.drawFrequencySeparator();
+        // this.drawFrequencySeparator(); // Disabled for cleaner look
         this.drawThresholdLine();
 
         // Always detect dominant key from all available data
@@ -713,11 +713,7 @@ class RoomtoneAnalyser {
         this.spectrumCtx.shadowColor = 'rgba(255, 255, 0, 0.5)';
         this.spectrumCtx.shadowBlur = 6;
 
-        this.spectrumCtx.fillText('GENERATE', x / 2, 30);
-        this.spectrumCtx.fillText('<500Hz', x / 2, 50);
-
-        this.spectrumCtx.fillText('ANALYZE', x + (width - x) / 2, 30);
-        this.spectrumCtx.fillText('>500Hz', x + (width - x) / 2, 50);
+        // Labels removed for cleaner look
 
         this.spectrumCtx.shadowBlur = 0;
         this.spectrumCtx.lineWidth = 1;

@@ -57,6 +57,28 @@ class RoomtoneAnalyser {
         this.isRecording = false;
         this.recordingStartTime = null;
         this.recordingDuration = 10000; // 10 seconds
+
+        // Jungle ambience
+        this.jungleOscillators = [];
+        this.jungleGain = null;
+        this.jungleEnabled = false;
+
+        // MIDI support
+        this.midiAccess = null;
+        this.activeMidiNotes = new Map(); // Track active MIDI notes
+
+        // Synth parameters (optimized defaults)
+        this.synthParams = {
+            attack: 0.05,
+            decay: 0.3,
+            sustain: 0.7,
+            release: 1.8,
+            filterCutoff: 3500,
+            filterQ: 2.5,
+            filterType: 'lowpass',
+            waveform: 'sawtooth',
+            detune: 0
+        };
         this.reversedAudioBuffer = null;
 
         // Frequency tooltip
@@ -73,6 +95,7 @@ class RoomtoneAnalyser {
         this.setupCanvases();
         this.setupTooltip();
         this.bindEvents();
+        this.setupMIDI();
     }
 
     setupCanvases() {
@@ -321,6 +344,9 @@ class RoomtoneAnalyser {
             // Set up tone generation
             this.setupToneGeneration();
 
+            // Start jungle ambience
+            this.startJungleAmbience();
+
             this.isRunning = true;
             this.toggleBtn.textContent = 'Stop Listening';
             this.toggleBtn.classList.remove('btn-primary');
@@ -361,6 +387,8 @@ class RoomtoneAnalyser {
 
         if (this.audioContext) {
             this.stopToneGeneration();
+            this.stopJungleAmbience();
+            this.stopAllMIDINotes();
             this.audioContext.close();
         }
 
@@ -699,8 +727,6 @@ class RoomtoneAnalyser {
         if (hasSignificantPeaks) {
         }
 
-        // Draw the dominant key in the center
-        this.drawKeyIndicator(width / 2, height / 2, dominantKey, resonanceStrength);
 
         // Track and generate tones for settled frequencies (disabled for now)
         // this.trackSettledFrequencies(prominentPeaks);
@@ -721,6 +747,11 @@ class RoomtoneAnalyser {
             // Generate immediate tone for strong peaks
             if (mainPeak.value > this.thresholdValue * 1.5) { // 1.5x threshold for strong peaks
                 this.playPeakTone(mainPeak.freq, mainPeak.value);
+
+                // Start background recording for reversed audio when peaks are strong
+                if (!this.isRecording) {
+                    this.startBackgroundRecording();
+                }
 
                 // Play secondary peak if it exists and is strong enough
                 if (prominentPeaks.length > 1) {
@@ -1451,47 +1482,6 @@ class RoomtoneAnalyser {
         return Math.min(combinedStrength, 1);
     }
 
-    drawKeyIndicator(centerX, centerY, key, strength) {
-        if (!key || strength < 0.1) return;
-
-        this.spectrumCtx.save();
-
-        const baseOpacity = 0.1 + strength * 0.6;
-        const pulseIntensity = strength * 0.3;
-        const pulse = Math.sin(Date.now() * 0.004) * pulseIntensity + (1 - pulseIntensity);
-        const finalOpacity = baseOpacity * pulse;
-
-        const glowLayers = [
-            { size: 160, alpha: finalOpacity * 0.05, color: '255, 40, 80' },
-            { size: 150, alpha: finalOpacity * 0.08, color: '255, 60, 100' },
-            { size: 140, alpha: finalOpacity * 0.12, color: '255, 80, 120' },
-            { size: 130, alpha: finalOpacity * 0.15, color: '255, 100, 140' },
-            { size: 120, alpha: finalOpacity * 0.2, color: '255, 120, 160' }
-        ];
-
-        glowLayers.forEach(layer => {
-            this.spectrumCtx.font = `bold ${layer.size}px -apple-system, BlinkMacSystemFont, sans-serif`;
-            this.spectrumCtx.fillStyle = `rgba(${layer.color}, ${layer.alpha})`;
-            this.spectrumCtx.textAlign = 'center';
-            this.spectrumCtx.textBaseline = 'middle';
-            this.spectrumCtx.fillText(key, centerX, centerY);
-        });
-
-        const gradient = this.spectrumCtx.createLinearGradient(0, centerY - 60, 0, centerY + 60);
-        gradient.addColorStop(0, `rgba(255, 180, 200, ${finalOpacity * 0.9})`);
-        gradient.addColorStop(0.5, `rgba(255, 100, 140, ${finalOpacity * 0.95})`);
-        gradient.addColorStop(1, `rgba(255, 60, 100, ${finalOpacity * 0.9})`);
-
-        this.spectrumCtx.font = 'bold 120px -apple-system, BlinkMacSystemFont, sans-serif';
-        this.spectrumCtx.fillStyle = gradient;
-        this.spectrumCtx.fillText(key, centerX, centerY);
-
-        this.spectrumCtx.strokeStyle = `rgba(255, 200, 220, ${finalOpacity * 0.4})`;
-        this.spectrumCtx.lineWidth = 3;
-        this.spectrumCtx.strokeText(key, centerX, centerY);
-
-        this.spectrumCtx.restore();
-    }
 
     drawThresholdLine() {
         const width = this.spectrumCanvas.offsetWidth;
@@ -1950,6 +1940,338 @@ class RoomtoneAnalyser {
         }
 
         return drones.slice(0, 4); // Limit to 4 drones max
+    }
+
+    startJungleAmbience() {
+        if (!this.audioContext || this.jungleEnabled) return;
+
+        this.jungleEnabled = true;
+        this.jungleGain = this.audioContext.createGain();
+        this.jungleGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+        this.jungleGain.gain.exponentialRampToValueAtTime(0.08, this.audioContext.currentTime + 3); // Louder for testing
+
+        if (this.reverbNode) {
+            this.jungleGain.connect(this.reverbNode);
+        } else {
+            this.jungleGain.connect(this.audioContext.destination);
+        }
+
+        // Create multiple layers of jungle sounds
+        this.createBirdCalls();
+        this.createInsectNoise();
+        this.createWindRustle();
+        this.createDistantThunder();
+    }
+
+    createBirdCalls() {
+        const birdCall = () => {
+            if (!this.jungleEnabled) return;
+
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+
+            // Random bird frequencies
+            const baseFreq = 800 + Math.random() * 2000;
+            osc.frequency.setValueAtTime(baseFreq, this.audioContext.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(baseFreq * (0.5 + Math.random()), this.audioContext.currentTime + 0.3);
+
+            osc.type = 'sawtooth';
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(baseFreq * 1.5, this.audioContext.currentTime);
+            filter.Q.setValueAtTime(8, this.audioContext.currentTime);
+
+            gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.08, this.audioContext.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.4);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.jungleGain);
+
+            osc.start();
+            osc.stop(this.audioContext.currentTime + 0.5);
+
+            // Schedule next bird call
+            setTimeout(birdCall, 3000 + Math.random() * 8000);
+        };
+
+        // Start first bird call much sooner
+        setTimeout(birdCall, 500 + Math.random() * 1000);
+    }
+
+    createInsectNoise() {
+        const insect = () => {
+            if (!this.jungleEnabled) return;
+
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+
+            osc.frequency.setValueAtTime(4000 + Math.random() * 8000, this.audioContext.currentTime);
+            osc.type = 'square';
+
+            filter.type = 'highpass';
+            filter.frequency.setValueAtTime(3000, this.audioContext.currentTime);
+
+            gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.03, this.audioContext.currentTime + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 1.5);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.jungleGain);
+
+            osc.start();
+            osc.stop(this.audioContext.currentTime + 1.6);
+
+            setTimeout(insect, 1000 + Math.random() * 4000);
+        };
+
+        setTimeout(insect, 1000);
+    }
+
+    createWindRustle() {
+        if (!this.jungleEnabled) return;
+
+        const windNoise = this.audioContext.createOscillator();
+        const windGain = this.audioContext.createGain();
+        const windFilter = this.audioContext.createBiquadFilter();
+
+        windNoise.type = 'sawtooth';
+        windNoise.frequency.setValueAtTime(80, this.audioContext.currentTime);
+
+        windFilter.type = 'bandpass';
+        windFilter.frequency.setValueAtTime(200, this.audioContext.currentTime);
+        windFilter.Q.setValueAtTime(0.5, this.audioContext.currentTime);
+
+        windGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+        windGain.gain.exponentialRampToValueAtTime(0.04, this.audioContext.currentTime + 5);
+
+        // Add subtle modulation
+        const lfo = this.audioContext.createOscillator();
+        const lfoGain = this.audioContext.createGain();
+        lfo.frequency.setValueAtTime(0.1, this.audioContext.currentTime);
+        lfoGain.gain.setValueAtTime(20, this.audioContext.currentTime);
+        lfo.connect(lfoGain);
+        lfoGain.connect(windFilter.frequency);
+
+        windNoise.connect(windFilter);
+        windFilter.connect(windGain);
+        windGain.connect(this.jungleGain);
+
+        windNoise.start();
+        lfo.start();
+
+        this.jungleOscillators.push(windNoise, lfo);
+    }
+
+    createDistantThunder() {
+        const thunder = () => {
+            if (!this.jungleEnabled) return;
+
+            const noise = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+
+            noise.type = 'sawtooth';
+            noise.frequency.setValueAtTime(40 + Math.random() * 20, this.audioContext.currentTime);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(120, this.audioContext.currentTime);
+
+            gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.015, this.audioContext.currentTime + 0.5);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 3);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.jungleGain);
+
+            noise.start();
+            noise.stop(this.audioContext.currentTime + 3.5);
+
+            // Very occasional thunder
+            setTimeout(thunder, 20000 + Math.random() * 40000);
+        };
+
+        // First thunder after long delay
+        setTimeout(thunder, 15000 + Math.random() * 20000);
+    }
+
+    stopJungleAmbience() {
+        if (!this.jungleEnabled) return;
+
+        this.jungleEnabled = false;
+
+        if (this.jungleGain) {
+            this.jungleGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 2);
+            setTimeout(() => {
+                if (this.jungleGain) {
+                    this.jungleGain.disconnect();
+                    this.jungleGain = null;
+                }
+            }, 2100);
+        }
+
+        this.jungleOscillators.forEach(osc => {
+            try {
+                osc.stop();
+            } catch (e) {
+                // Already stopped
+            }
+        });
+        this.jungleOscillators = [];
+    }
+
+    async setupMIDI() {
+        if (!navigator.requestMIDIAccess) {
+            console.warn('Web MIDI API not supported in this browser');
+            return;
+        }
+
+        try {
+            this.midiAccess = await navigator.requestMIDIAccess();
+
+            // Set up input handlers
+            for (const input of this.midiAccess.inputs.values()) {
+                input.onmidimessage = (event) => this.handleMIDIMessage(event);
+            }
+
+            // Handle device connection/disconnection
+            this.midiAccess.onstatechange = (event) => {
+                if (event.port.type === 'input') {
+                    if (event.port.state === 'connected') {
+                        event.port.onmidimessage = (event) => this.handleMIDIMessage(event);
+                    }
+                }
+            };
+
+            console.log('MIDI access granted - connect your USB keyboard!');
+        } catch (error) {
+            console.warn('Failed to get MIDI access:', error);
+        }
+    }
+
+    handleMIDIMessage(event) {
+        const [command, note, velocity] = event.data;
+
+        // Note on (144 + channel) or note on with velocity > 0
+        if ((command >= 144 && command <= 159 && velocity > 0) ||
+            (command >= 128 && command <= 143 && velocity > 0)) {
+            this.playMIDINote(note, velocity);
+        }
+        // Note off (128 + channel) or note on with velocity 0
+        else if ((command >= 128 && command <= 143) ||
+                 (command >= 144 && command <= 159 && velocity === 0)) {
+            this.stopMIDINote(note);
+        }
+    }
+
+    playMIDINote(midiNote, velocity) {
+        if (!this.audioContext) return;
+
+        // Convert MIDI note to frequency
+        const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
+
+        // Don't play if already active
+        if (this.activeMidiNotes.has(midiNote)) return;
+
+        try {
+            // Create synthesizer sound with user-controlled parameters
+            const osc = this.audioContext.createOscillator();
+            const filter = this.audioContext.createBiquadFilter();
+            const synthGain = this.audioContext.createGain();
+
+            // Set frequency with detune
+            const detuneAmount = this.synthParams.detune;
+            osc.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+            osc.detune.setValueAtTime(detuneAmount, this.audioContext.currentTime);
+
+            // Set waveform from controls
+            osc.type = this.synthParams.waveform;
+
+            // Set up filter
+            filter.type = this.synthParams.filterType;
+            filter.frequency.setValueAtTime(this.synthParams.filterCutoff, this.audioContext.currentTime);
+            filter.Q.setValueAtTime(this.synthParams.filterQ, this.audioContext.currentTime);
+
+            // Set up ADSR envelope based on velocity
+            const baseVolume = (velocity / 127) * 0.4;
+            const sustainLevel = baseVolume * this.synthParams.sustain;
+
+            synthGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+
+            // Attack
+            synthGain.gain.exponentialRampToValueAtTime(baseVolume,
+                this.audioContext.currentTime + this.synthParams.attack);
+
+            // Decay to sustain
+            synthGain.gain.exponentialRampToValueAtTime(sustainLevel,
+                this.audioContext.currentTime + this.synthParams.attack + this.synthParams.decay);
+
+            // Connect the audio graph: osc -> filter -> gain -> destination
+            osc.connect(filter);
+            filter.connect(synthGain);
+            synthGain.connect(this.audioContext.destination);
+
+            // Start oscillator
+            osc.start();
+
+            // Store the tone data
+            this.activeMidiNotes.set(midiNote, {
+                oscillator: osc,
+                filter: filter,
+                gain: synthGain,
+                frequency: frequency
+            });
+
+        } catch (error) {
+            console.warn('Error playing MIDI note:', error);
+        }
+    }
+
+    stopMIDINote(midiNote) {
+        if (!this.activeMidiNotes.has(midiNote)) return;
+
+        const tone = this.activeMidiNotes.get(midiNote);
+
+        // Apply release from ADSR envelope
+        const releaseTime = this.synthParams.release;
+        if (tone.gain) {
+            tone.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + releaseTime);
+        }
+
+        setTimeout(() => {
+            try {
+                if (tone.oscillator) {
+                    tone.oscillator.stop();
+                }
+            } catch (e) {
+                // Already stopped
+            }
+            this.activeMidiNotes.delete(midiNote);
+        }, releaseTime * 1000 + 100);
+    }
+
+    stopAllMIDINotes() {
+        // Stop all active MIDI notes
+        for (const [midiNote, tone] of this.activeMidiNotes) {
+            if (tone.gain) {
+                tone.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+            }
+
+            setTimeout(() => {
+                try {
+                    if (tone.oscillator) {
+                        tone.oscillator.stop();
+                    }
+                } catch (e) {
+                    // Already stopped
+                }
+            }, 150);
+        }
+        this.activeMidiNotes.clear();
     }
 
     stopToneGeneration() {

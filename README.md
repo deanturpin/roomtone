@@ -27,6 +27,8 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 ### Tone Generation
 - Bass frequency generation below 500Hz to prevent feedback
 - Musical key-based tone selection using root and fifth frequencies
+- MIDI keyboard input for direct frequency control and live performance
+- Polyphonic MIDI note handling with velocity-sensitive volume
 - Automatic volume control with smooth ramping
 - Real-time response to detected dominant keys
 - Immediate stop functionality for feedback prevention
@@ -36,6 +38,7 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 ### Web Audio API Stack
 
 - **Audio Input**: `getUserMedia()` for microphone access
+- **MIDI Input**: Web MIDI API for USB keyboard/controller support
 - **Analysis**: `AnalyserNode` with 2048 FFT size for frequency analysis
 - **Synthesis**: `OscillatorNode` and `GainNode` for bass tone generation
 - **Output**: `AudioContext.destination` with proper gain control
@@ -61,17 +64,21 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 The application is built around a single `RoomtoneAnalyser` class that handles:
 
 1. **Audio Setup**: Microphone access and Web Audio context creation
-2. **Real-time Analysis**: Continuous FFT analysis with peak detection
-3. **Visual Rendering**: Canvas-based spectrum and waveform display
-4. **Musical Intelligence**: Key detection and harmonic analysis
-5. **Tone Generation**: Bass frequency synthesis below 500Hz
+2. **MIDI Setup**: USB keyboard/controller detection and message handling
+3. **Real-time Analysis**: Continuous FFT analysis with peak detection
+4. **Visual Rendering**: Canvas-based spectrum and waveform display
+5. **Musical Intelligence**: Key detection and harmonic analysis
+6. **Tone Generation**: Bass frequency synthesis below 500Hz with MIDI input support
 
 ### Key Methods
 
 - `setupAudio()`: Initialises microphone and audio analysis chain
+- `setupMIDI()`: Configures Web MIDI API access and input event handling
 - `analyse()`: Main analysis loop with FFT processing and peak detection
 - `detectMusicalKey()`: Harmonic scoring algorithm for key identification
 - `updateToneGeneration()`: Bass tone synthesis based on detected keys
+- `handleMIDIMessage()`: Processes MIDI note on/off messages from connected devices
+- `playMIDINote()`: Generates oscillator tones from MIDI input with velocity control
 - `drawSpectrum()`: Real-time frequency visualisation with musical annotations
 
 ## UI Design
@@ -101,6 +108,7 @@ The application is built around a single `RoomtoneAnalyser` class that handles:
 
 ### Creative & Professional
 - **Musical Discovery**: Find your room's acoustic character and resonant frequencies
+- **Live Performance**: Play MIDI keyboard through room's acoustic analysis for responsive performance
 - **Installation Art**: Site-specific generative music responding to space
 - **Focus Work**: Adaptive ambient atmosphere that responds to environmental sound
 - **Travel**: Transform any space (hotels, airports, studios) with harmonic presence
@@ -118,24 +126,42 @@ The application is built around a single `RoomtoneAnalyser` class that handles:
 4. **Musical Enhancement**: Quantise to scales, add rhythm
 5. **Polish**: UI, visualisations, export features
 
+## MIDI Input Support
+
+Connect a USB MIDI keyboard or controller to play notes directly through the room's acoustic analysis system. The Web MIDI API automatically detects connected devices and processes note on/off messages with velocity sensitivity.
+
+### MIDI Features
+- **Automatic Device Detection**: Plug-and-play support for USB MIDI keyboards
+- **Polyphonic Input**: Multiple simultaneous notes with individual volume control
+- **Velocity Sensitivity**: Note dynamics affect generated tone volume
+- **Real-time Processing**: Immediate response to MIDI input with minimal latency
+- **Frequency Conversion**: Standard MIDI note numbers converted to precise frequencies
+
+### Setup
+1. Connect USB MIDI keyboard before starting the app
+2. Browser will request MIDI access permission (one-time)
+3. Play notes on keyboard - they'll be processed through the room analysis system
+4. MIDI input works alongside microphone analysis for hybrid performance
+
 ## Privacy & Permissions
 
 - All processing happens locally in browser
 - No audio data sent to servers
 - Microphone permission required (one-time prompt)
+- MIDI access permission required if USB keyboard connected
 - Clear visual indicator when recording
 
 ## Browser Compatibility
 
-- Chrome/Edge: Full support
-- Firefox: Full support
-- Safari: Limited (stricter autoplay policies)
-- Mobile: Works via browser, better as PWA
+- Chrome/Edge: Full support (audio + MIDI)
+- Firefox: Full support (audio + MIDI)
+- Safari: Limited (stricter autoplay policies, MIDI support varies)
+- Mobile: Works via browser, better as PWA (MIDI requires USB OTG adapters)
 
 ## Future Enhancements
 
 - Machine learning for pattern recognition
 - Collaborative mode (multiple devices in same room)
 - Preset "moods" or generative strategies
-- MIDI output for controlling synthesizers
+- MIDI output for controlling external synthesizers
 - Integration with smart home systems

@@ -60,7 +60,7 @@ class RoomtoneAnalyser {
         this.recordedChunks = [];
         this.isRecording = false;
         this.recordingStartTime = null;
-        this.recordingDuration = 10000; // 10 seconds
+        this.recordingDuration = 5000; // 5 seconds for more frequent updates
 
         // Jungle ambience
         this.jungleOscillators = [];
@@ -454,8 +454,16 @@ class RoomtoneAnalyser {
             // Set up tone generation
             this.setupToneGeneration();
 
-            // Start jungle ambience
-            this.startJungleAmbience();
+            // Start rain ambience
+            this.startRainAmbience();
+
+            // Start background recording after 3 seconds for reversed audio effect
+            // DISABLED FOR TESTING
+            // setTimeout(() => {
+            //     if (this.isRunning && !this.isRecording) {
+            //         this.startBackgroundRecording();
+            //     }
+            // }, 3000);
 
             this.isRunning = true;
 
@@ -756,20 +764,57 @@ class RoomtoneAnalyser {
         this.spectrumCtx.fillStyle = 'rgb(20, 20, 30)';
         this.spectrumCtx.fillRect(0, 0, width, height);
 
-        // Draw subtle ROOMTONE background text with logo gradient colors
+        // Draw subtle ROOMTONE background text with animated gradient colors
         this.spectrumCtx.save();
-        this.spectrumCtx.globalAlpha = 0.5;
+        this.spectrumCtx.globalAlpha = 0.05;
 
-        // Create gradient that matches the logo
-        const textGradient = this.spectrumCtx.createLinearGradient(0, 0, width, height);
+        // Create animated gradient that slowly shifts position
+        const gradientTime = Date.now() / 4000; // Slow cycle (4 seconds)
+        const offset = (Math.sin(gradientTime) + 1) / 2; // Oscillate between 0 and 1
+
+        // Create gradient with shifting angle based on time
+        const angle = offset * Math.PI;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.max(width, height) / 2;
+
+        const x1 = centerX + Math.cos(angle) * radius;
+        const y1 = centerY + Math.sin(angle) * radius;
+        const x2 = centerX - Math.cos(angle) * radius;
+        const y2 = centerY - Math.sin(angle) * radius;
+
+        const textGradient = this.spectrumCtx.createLinearGradient(x1, y1, x2, y2);
         textGradient.addColorStop(0, '#4a9eff');
-        textGradient.addColorStop(1, '#00ff88');
+        textGradient.addColorStop(0.5, '#00ff88');
+        textGradient.addColorStop(1, '#4a9eff');
         this.spectrumCtx.fillStyle = textGradient;
 
         this.spectrumCtx.font = `${Math.min(width * 0.15, 120)}px Arial`;
         this.spectrumCtx.textAlign = 'center';
         this.spectrumCtx.textBaseline = 'middle';
+
+        // Add pulsing glow effect
+        const glowIntensity = (Math.sin(Date.now() / 1000) + 1) / 2; // Pulse every 2 seconds
+        const glowRadius = 20 + (glowIntensity * 30); // Glow radius between 20-50
+
+        // Apply multiple shadow layers for intense glow
+        this.spectrumCtx.shadowColor = '#00ff88';
+        this.spectrumCtx.shadowBlur = glowRadius;
+
+        // Draw text multiple times for stronger glow
+        for (let i = 0; i < 3; i++) {
+            this.spectrumCtx.fillText('ROOMTONE', width / 2, height / 2);
+        }
+
+        // Add inner glow with different color
+        this.spectrumCtx.shadowColor = '#4a9eff';
+        this.spectrumCtx.shadowBlur = glowRadius * 0.5;
         this.spectrumCtx.fillText('ROOMTONE', width / 2, height / 2);
+
+        // Reset shadow
+        this.spectrumCtx.shadowColor = 'transparent';
+        this.spectrumCtx.shadowBlur = 0;
+
         this.spectrumCtx.restore();
 
         const nyquist = this.audioContext.sampleRate / 2;
@@ -1734,6 +1779,13 @@ class RoomtoneAnalyser {
                 this.playReversedAudio();
             }, 1000);
 
+            // Start recording again for continuous background audio
+            setTimeout(() => {
+                if (this.isRunning) {
+                    this.startBackgroundRecording();
+                }
+            }, 2000);
+
         } catch (error) {
             console.warn('Error processing recorded audio:', error);
         }
@@ -1762,22 +1814,37 @@ class RoomtoneAnalyser {
     playReversedAudio() {
         if (!this.reversedAudioBuffer) return;
 
+        // Fade out and stop any existing reversed audio
+        if (this.reversedAudioSources) {
+            this.reversedAudioSources.forEach(({source, gain}) => {
+                gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 2);
+                setTimeout(() => {
+                    try { source.stop(); } catch (e) {}
+                }, 2100);
+            });
+            this.reversedAudioSources = [];
+        }
+
         try {
             const source = this.audioContext.createBufferSource();
             const gain = this.audioContext.createGain();
 
             source.buffer = this.reversedAudioBuffer;
+            source.loop = true; // Loop the reversed audio continuously
 
-            // Set low volume for ambient effect
+            // Set moderate volume for noticeable ambient effect
             gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.1, this.audioContext.currentTime + 1); // Fade in
-            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + this.reversedAudioBuffer.duration - 1); // Fade out
+            gain.gain.exponentialRampToValueAtTime(0.3, this.audioContext.currentTime + 1); // Fade in to audible level
 
             // Connect: source -> gain -> reverb -> destination
             source.connect(gain);
             gain.connect(this.reverbNode);
 
             source.start();
+
+            // Store reference so we can stop it later
+            if (!this.reversedAudioSources) this.reversedAudioSources = [];
+            this.reversedAudioSources.push({source, gain});
 
         } catch (error) {
             console.warn('Error playing reversed audio:', error);
@@ -2077,13 +2144,13 @@ class RoomtoneAnalyser {
         return drones.slice(0, 4); // Limit to 4 drones max
     }
 
-    startJungleAmbience() {
+    startRainAmbience() {
         if (!this.audioContext || this.jungleEnabled) return;
 
-        this.jungleEnabled = true;
+        this.jungleEnabled = true; // Keep variable name for compatibility
         this.jungleGain = this.audioContext.createGain();
         this.jungleGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-        this.jungleGain.gain.exponentialRampToValueAtTime(0.08, this.audioContext.currentTime + 3); // Louder for testing
+        this.jungleGain.gain.exponentialRampToValueAtTime(0.15, this.audioContext.currentTime + 3); // Gentle rain volume
 
         if (this.reverbNode) {
             this.jungleGain.connect(this.reverbNode);
@@ -2091,153 +2158,151 @@ class RoomtoneAnalyser {
             this.jungleGain.connect(this.audioContext.destination);
         }
 
-        // Create multiple layers of jungle sounds
-        this.createBirdCalls();
-        this.createInsectNoise();
-        this.createWindRustle();
-        this.createDistantThunder();
+        // Create multiple layers of rain sounds
+        this.createRainDrops();
+        this.createSteadyRain();
+        this.createOccasionalThunder();
     }
 
-    createBirdCalls() {
-        const birdCall = () => {
+    createRainDrops() {
+        const rainDrop = () => {
             if (!this.jungleEnabled) return;
 
-            const osc = this.audioContext.createOscillator();
+            // Create white noise for rain drop
+            const bufferSize = 0.1 * this.audioContext.sampleRate;
+            const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = this.audioContext.createBufferSource();
             const gain = this.audioContext.createGain();
             const filter = this.audioContext.createBiquadFilter();
 
-            // Random bird frequencies
-            const baseFreq = 800 + Math.random() * 2000;
-            osc.frequency.setValueAtTime(baseFreq, this.audioContext.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(baseFreq * (0.5 + Math.random()), this.audioContext.currentTime + 0.3);
+            noise.buffer = buffer;
 
-            osc.type = 'sawtooth';
+            // Filter to create rain drop sound
             filter.type = 'bandpass';
-            filter.frequency.setValueAtTime(baseFreq * 1.5, this.audioContext.currentTime);
-            filter.Q.setValueAtTime(8, this.audioContext.currentTime);
+            filter.frequency.setValueAtTime(800 + Math.random() * 400, this.audioContext.currentTime);
+            filter.Q.setValueAtTime(1, this.audioContext.currentTime);
 
+            // Quick burst for rain drop
             gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.08, this.audioContext.currentTime + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.4);
-
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(this.jungleGain);
-
-            osc.start();
-            osc.stop(this.audioContext.currentTime + 0.5);
-
-            // Schedule next bird call
-            setTimeout(birdCall, 3000 + Math.random() * 8000);
-        };
-
-        // Start first bird call much sooner
-        setTimeout(birdCall, 500 + Math.random() * 1000);
-    }
-
-    createInsectNoise() {
-        const insect = () => {
-            if (!this.jungleEnabled) return;
-
-            const osc = this.audioContext.createOscillator();
-            const gain = this.audioContext.createGain();
-            const filter = this.audioContext.createBiquadFilter();
-
-            osc.frequency.setValueAtTime(4000 + Math.random() * 8000, this.audioContext.currentTime);
-            osc.type = 'square';
-
-            filter.type = 'highpass';
-            filter.frequency.setValueAtTime(3000, this.audioContext.currentTime);
-
-            gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.03, this.audioContext.currentTime + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 1.5);
-
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(this.jungleGain);
-
-            osc.start();
-            osc.stop(this.audioContext.currentTime + 1.6);
-
-            setTimeout(insect, 1000 + Math.random() * 4000);
-        };
-
-        setTimeout(insect, 1000);
-    }
-
-    createWindRustle() {
-        if (!this.jungleEnabled) return;
-
-        const windNoise = this.audioContext.createOscillator();
-        const windGain = this.audioContext.createGain();
-        const windFilter = this.audioContext.createBiquadFilter();
-
-        windNoise.type = 'sawtooth';
-        windNoise.frequency.setValueAtTime(80, this.audioContext.currentTime);
-
-        windFilter.type = 'bandpass';
-        windFilter.frequency.setValueAtTime(200, this.audioContext.currentTime);
-        windFilter.Q.setValueAtTime(0.5, this.audioContext.currentTime);
-
-        windGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-        windGain.gain.exponentialRampToValueAtTime(0.04, this.audioContext.currentTime + 5);
-
-        // Add subtle modulation
-        const lfo = this.audioContext.createOscillator();
-        const lfoGain = this.audioContext.createGain();
-        lfo.frequency.setValueAtTime(0.1, this.audioContext.currentTime);
-        lfoGain.gain.setValueAtTime(20, this.audioContext.currentTime);
-        lfo.connect(lfoGain);
-        lfoGain.connect(windFilter.frequency);
-
-        windNoise.connect(windFilter);
-        windFilter.connect(windGain);
-        windGain.connect(this.jungleGain);
-
-        windNoise.start();
-        lfo.start();
-
-        this.jungleOscillators.push(windNoise, lfo);
-    }
-
-    createDistantThunder() {
-        const thunder = () => {
-            if (!this.jungleEnabled) return;
-
-            const noise = this.audioContext.createOscillator();
-            const gain = this.audioContext.createGain();
-            const filter = this.audioContext.createBiquadFilter();
-
-            noise.type = 'sawtooth';
-            noise.frequency.setValueAtTime(40 + Math.random() * 20, this.audioContext.currentTime);
-
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(120, this.audioContext.currentTime);
-
-            gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.015, this.audioContext.currentTime + 0.5);
-            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 3);
+            gain.gain.exponentialRampToValueAtTime(0.05, this.audioContext.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
 
             noise.connect(filter);
             filter.connect(gain);
             gain.connect(this.jungleGain);
 
             noise.start();
-            noise.stop(this.audioContext.currentTime + 3.5);
 
-            // Very occasional thunder
-            setTimeout(thunder, 20000 + Math.random() * 40000);
+            // Schedule next rain drop
+            setTimeout(rainDrop, 100 + Math.random() * 500);
         };
 
-        // First thunder after long delay
-        setTimeout(thunder, 15000 + Math.random() * 20000);
+        // Start rain drops
+        setTimeout(rainDrop, 100);
+    }
+
+    createSteadyRain() {
+        if (!this.jungleEnabled) return;
+
+        // Create continuous white noise for steady rain
+        const bufferSize = 2 * this.audioContext.sampleRate; // 2 second buffer
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const output = buffer.getChannelData(0);
+
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.audioContext.createBufferSource();
+        const gain = this.audioContext.createGain();
+        const lowpass = this.audioContext.createBiquadFilter();
+        const highpass = this.audioContext.createBiquadFilter();
+
+        noise.buffer = buffer;
+        noise.loop = true;
+
+        // Shape the noise to sound like rain
+        lowpass.type = 'lowpass';
+        lowpass.frequency.setValueAtTime(1500, this.audioContext.currentTime);
+        lowpass.Q.setValueAtTime(0.5, this.audioContext.currentTime);
+
+        highpass.type = 'highpass';
+        highpass.frequency.setValueAtTime(400, this.audioContext.currentTime);
+        highpass.Q.setValueAtTime(0.5, this.audioContext.currentTime);
+
+        // Set steady rain volume
+        gain.gain.setValueAtTime(0.08, this.audioContext.currentTime);
+
+        // Connect the nodes
+        noise.connect(lowpass);
+        lowpass.connect(highpass);
+        highpass.connect(gain);
+        gain.connect(this.jungleGain);
+
+        noise.start();
+
+        // Store reference for cleanup
+        if (!this.rainNodes) this.rainNodes = [];
+        this.rainNodes.push({noise, gain});
+    }
+
+    createOccasionalThunder() {
+        const thunder = () => {
+            if (!this.jungleEnabled) return;
+
+            // Create rumbling thunder sound using low frequency noise
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(30 + Math.random() * 20, this.audioContext.currentTime);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(100, this.audioContext.currentTime);
+            filter.Q.setValueAtTime(5, this.audioContext.currentTime);
+
+            // Thunder rumble envelope
+            gain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.02, this.audioContext.currentTime + 0.3);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 4);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.jungleGain);
+
+            osc.start();
+            osc.stop(this.audioContext.currentTime + 4.5);
+
+            // Very occasional distant thunder (30-60 seconds apart)
+            setTimeout(thunder, 30000 + Math.random() * 30000);
+        };
+
+        // First thunder after 20-40 seconds
+        setTimeout(thunder, 20000 + Math.random() * 20000);
     }
 
     stopJungleAmbience() {
         if (!this.jungleEnabled) return;
 
         this.jungleEnabled = false;
+
+        // Stop rain nodes
+        if (this.rainNodes) {
+            this.rainNodes.forEach(({noise, gain}) => {
+                gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 2);
+                setTimeout(() => {
+                    try { noise.stop(); } catch (e) {}
+                }, 2100);
+            });
+            this.rainNodes = [];
+        }
 
         if (this.jungleGain) {
             this.jungleGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 2);

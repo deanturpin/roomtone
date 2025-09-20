@@ -59,10 +59,32 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 - Auto-deployment via `make deploy`
 - HTTPS required for microphone access
 
-#### Version Structure
-- **Landing Page** (`/`): Project overview with links to versions
-- **Latest** (`/latest/`): Development build updated with every commit
-- **Stable** (`/stable/`): Production release updated only with git tags
+#### Build System
+
+The project uses a three-tier deployment system:
+
+- **Landing Page** (`/`): Project overview with enhanced animated banner, live statistics, and links to app versions
+- **Latest** (`/latest/`): Development build automatically updated with every commit via `make deploy`
+- **Stable** (`/stable/`): Production release pointing to the most recent git tag (currently v1.4.0)
+
+#### Release Workflow
+
+**Development**:
+```bash
+make deploy    # Auto-commit and push latest changes
+```
+
+**Creating Releases**:
+```bash
+make tag       # Interactive: creates git tag, updates stats, updates stable
+```
+
+**Manual Stable Update**:
+```bash
+make update-stable    # Updates stable to most recent git tag
+```
+
+The system intelligently handles different historical file structures and ensures stable always reflects the actual tagged release code.
 
 ## Current Implementation
 

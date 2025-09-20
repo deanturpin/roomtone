@@ -15,8 +15,7 @@ body {
 }
 
 .container {
-    width: 90%;
-    max-width: 1200px;
+    width: 100%;
     padding: 2rem;
 }
 
@@ -96,7 +95,7 @@ h1 {
 }
 
 main {
-    height: calc(100vh - 200px);
+    height: calc(100vh - 150px);
 }
 
 .display-container {

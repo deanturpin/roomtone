@@ -14,6 +14,41 @@ roomtone is a real-time frequency analyser with musical key detection and bass t
 - Focus on bass frequency range for room tone generation
 - Test tone generation at safe volumes
 
+## Build System and Deployment
+
+### Three-Tier Architecture
+
+1. **Landing Page** (`docs/index.html`):
+   - Enhanced animated banner with glow and shimmer effects
+   - Live project statistics loaded from `stats.json`
+   - Links to Latest and Stable versions
+   - Responsive design with mobile optimizations
+
+2. **Latest Build** (`docs/latest/`):
+   - Development version updated with every `make deploy`
+   - Contains cutting-edge features and improvements
+   - Automatically includes latest git hash with commit message links
+
+3. **Stable Build** (`docs/stable/`):
+   - Production version pointing to most recent git tag
+   - Updated only when creating releases with `make tag`
+   - Represents tested, stable functionality
+
+### Release Commands
+
+- `make serve` - Local development server with auto-version updates
+- `make deploy` - Lint, commit, and push latest changes
+- `make stats` - Generate codebase statistics JSON
+- `make tag` - Interactive release creation (stats + tag + stable update)
+- `make update-stable` - Manually sync stable to latest git tag
+
+### Statistics System
+
+The `generate-stats.sh` script automatically counts:
+- Lines of code by language (JavaScript, HTML, CSS, Markdown)
+- File counts and git commit statistics
+- Outputs to `docs/stats.json` for landing page display
+
 ## Code Style
 
 - Use modern JavaScript (ES6+)
@@ -23,22 +58,45 @@ roomtone is a real-time frequency analyser with musical key detection and bass t
 
 ## Testing
 
+### Feature Testing
 - Test microphone capture across different browsers
 - Test bass tone generation and volume controls
 - Check frequency analysis accuracy and peak detection
 - Test musical key detection with various audio sources
 - Verify tone generation starts/stops properly
-- Test on both desktop and mobile devices
+- Test MIDI keyboard input and velocity sensitivity
+- Verify git hash links work correctly in both builds
+
+### Build Testing
+- Test landing page statistics loading and display
+- Verify Latest build updates with development changes
+- Confirm Stable build reflects tagged release functionality
+- Test responsive design on mobile devices
+- Verify all version links work correctly across builds
 
 ## Key Features Implemented
 
+### Core Audio Features
 - Real-time FFT analysis with logarithmic scaling
 - Musical note identification and peak frequency tracking
 - Harmonic scoring for musical key detection
 - Bass tone generation for harmonic room foundation
+- MIDI keyboard input with velocity-sensitive polyphonic playback
 - Canvas-based spectrum and waveform visualisation
+
+### User Interface
+- Enhanced animated landing page banner with glow and shimmer effects
+- Responsive design optimised for mobile and desktop
+- Live project statistics with automatic updates
+- Clickable git version hashes linking to GitHub commits
 - Visual spectrum analysis with configurable frequency ranges
 - Smooth visual transitions and auto-refresh development setup
+
+### Development Infrastructure
+- Three-tier build system (Landing/Latest/Stable)
+- Automated statistics generation and deployment
+- Git tag-based release management
+- Comprehensive linting and code quality checks
 
 ## Commit Messages
 

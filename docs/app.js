@@ -577,8 +577,9 @@ class RoomtoneAnalyser {
             if (peak.value < 128) break; // Higher threshold to ignore noise
 
             // Check if this peak is far enough from already selected peaks
+            // Increased separation to prevent FFT curve shoulders appearing as separate peaks
             const tooClose = prominent.some(p =>
-                Math.abs(Math.log10(peak.freq) - Math.log10(p.freq)) < 0.05
+                Math.abs(Math.log10(peak.freq) - Math.log10(p.freq)) < 0.15
             );
 
             if (!tooClose) {

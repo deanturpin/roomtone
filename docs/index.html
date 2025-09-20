@@ -130,6 +130,54 @@
             margin-right: 0.5rem;
         }
 
+        .stats {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        .stats h3 {
+            color: #00d4aa;
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00a8ff;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #a0a0a0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stats-loading {
+            color: #a0a0a0;
+            font-style: italic;
+        }
+
         .footer {
             color: #808080;
             font-size: 0.9rem;
@@ -208,6 +256,34 @@
             </a>
         </div>
 
+        <div class="stats" id="statsSection">
+            <h3>Project Statistics</h3>
+            <div class="stats-loading" id="statsLoading">Loading statistics...</div>
+            <div id="statsContent" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalLines">-</div>
+                        <div class="stat-label">Lines of Code</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalCommits">-</div>
+                        <div class="stat-label">Commits</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalFiles">-</div>
+                        <div class="stat-label">Source Files</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="jsLines">-</div>
+                        <div class="stat-label">JavaScript</div>
+                    </div>
+                </div>
+                <div style="font-size: 0.8rem; color: #666; margin-top: 1rem;">
+                    Last updated: <span id="lastUpdated">-</span>
+                </div>
+            </div>
+        </div>
+
         <div class="footer">
             <p>
                 Built with Web Audio API and Canvas 2D •
@@ -215,5 +291,27 @@
             </p>
         </div>
     </div>
+
+    <script>
+        // Load and display statistics
+        fetch('stats.json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('totalLines').textContent = data.lines.total.toLocaleString();
+                document.getElementById('totalCommits').textContent = data.git.commits.toLocaleString();
+                document.getElementById('totalFiles').textContent = data.files.total.toLocaleString();
+                document.getElementById('jsLines').textContent = data.lines.javascript.toLocaleString();
+
+                const date = new Date(data.generated);
+                document.getElementById('lastUpdated').textContent = date.toLocaleDateString();
+
+                document.getElementById('statsLoading').style.display = 'none';
+                document.getElementById('statsContent').style.display = 'block';
+            })
+            .catch(error => {
+                console.warn('Could not load statistics:', error);
+                document.getElementById('statsLoading').textContent = 'Statistics not available';
+            });
+    </script>
 </body>
 </html>

@@ -9,11 +9,15 @@
 </head>
 <body>
     <div class="container">
+        <!-- Logo stays visible -->
+        <div class="logo-section" style="position: fixed; top: 20px; left: 20px; z-index: 1000;">
+            <canvas id="toneWave" width="120" height="30" style="display: none;"></canvas>
+        </div>
+
         <header>
             <div class="title-section">
                 <div class="title-with-wave">
                     <h1>ROOMTONE</h1>
-                    <canvas id="toneWave" width="120" height="30" style="display: none;"></canvas>
                 </div>
                 <p class="version" id="version"></p>
             </div>
@@ -66,7 +70,15 @@
     <script src="app.js"></script>
     <script src="auto-refresh.js"></script>
     <script>
-        document.getElementById('version').textContent = GIT_VERSION;
+        const versionElement = document.getElementById('version');
+        const link = document.createElement('a');
+        link.href = `https://github.com/deanturpin/roomtone/commit/${GIT_VERSION}`;
+        link.textContent = GIT_VERSION;
+        link.target = '_blank';
+        link.style.color = 'inherit';
+        link.style.textDecoration = 'none';
+        link.title = 'View commit on GitHub';
+        versionElement.appendChild(link);
     </script>
 </body>
 </html>

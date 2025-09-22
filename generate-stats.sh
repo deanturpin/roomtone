@@ -16,8 +16,8 @@ HTML_FILES=$(find docs/ -name "*.html" | wc -l | tr -d ' ')
 CSS_FILES=$(find docs/ -name "*.css" | wc -l | tr -d ' ')
 MD_FILES=$(ls *.md CLAUDE.md 2>/dev/null | wc -l | tr -d ' ')
 
-# Total lines (avoiding duplicates by counting unique source files only)
-TOTAL_LINES=$(($(find docs/latest/ docs/stable/ -name "*.js" -o -name "*.html" -o -name "*.css" | head -6 | xargs wc -l | tail -1 | awk '{print $1}') + $MD_LINES + $MAKE_LINES))
+# Total lines (sum all the individual counts)
+TOTAL_LINES=$((JS_LINES + HTML_LINES + CSS_LINES + MD_LINES + MAKE_LINES))
 
 # Get git stats
 COMMITS=$(git rev-list --count HEAD)

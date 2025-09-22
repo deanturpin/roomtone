@@ -847,7 +847,10 @@ class RoomtoneAnalyser {
                 const rawAmplitude = data[bin] / 255;
                 this.smoothedAmplitudes[bin] = this.smoothedAmplitudes[bin] * 0.85 + rawAmplitude * 0.15;
 
-                // Fixed scale: use full height but don't auto-scale
+                // Clamp smoothed amplitude to prevent overflow in loud environments
+                this.smoothedAmplitudes[bin] = Math.min(this.smoothedAmplitudes[bin], 1.0);
+
+                // Fixed scale: use full height with proper bounds
                 const barHeight = this.smoothedAmplitudes[bin] * height * 0.8;
 
                 // Different color when above peak detection threshold

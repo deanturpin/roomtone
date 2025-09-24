@@ -15,7 +15,7 @@ class RoomtoneAnalyser {
 
 
         this.toggleBtn = document.getElementById('toggleBtn');
-        this.chromaticModeCheckbox = document.getElementById('chromaticMode');
+        this.chromaticModeCheckbox = document.getElementById('chromaticModeFFT');
         this.activePianoTones = new Map();
 
         // Note: activeNotes and activeChord elements removed
@@ -925,11 +925,20 @@ class RoomtoneAnalyser {
                     // Chromatic mode: play the second peak directly
                     this.playPeakTone(secondPeak.freq, secondPeak.value);
                 } else {
-                    // Harmonic mode: play third or fifth harmonic of the second peak
+                    // Harmonic mode: play octave, perfect fifth, or perfect fourth below
                     const baseFreq = secondPeak.freq;
-                    const harmonicMultiplier = Math.random() > 0.5 ? 1.25 : 1.5; // Third (5:4) or fifth (3:2)
+                    // Use lower harmonics for more melodious bass tones
+                    const harmonics = [
+                        0.5,   // Octave below
+                        0.667, // Perfect fifth below (2:3)
+                        0.75   // Perfect fourth below (3:4)
+                    ];
+                    const harmonicMultiplier = harmonics[Math.floor(Math.random() * harmonics.length)];
                     const harmonicFreq = baseFreq * harmonicMultiplier;
-                    this.playPeakTone(harmonicFreq, secondPeak.value);
+                    // Only play if in reasonable frequency range (50-500 Hz for bass)
+                    if (harmonicFreq > 50 && harmonicFreq < 500) {
+                        this.playPeakTone(harmonicFreq, secondPeak.value);
+                    }
                 }
 
                 // Start background recording for reversed audio when peaks are strong

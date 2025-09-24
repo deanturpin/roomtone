@@ -23,20 +23,20 @@
             </div>
             <div class="header-controls">
                 <button id="toggleBtn" class="btn-primary">Start Listening</button>
-                <div class="controls-section" style="margin-top: 1rem;">
-                    <label class="checkbox-container" style="color: #a0a0a0; font-size: 0.9rem;">
-                        <input type="checkbox" id="chromaticMode" style="margin-right: 0.5rem;">
-                        Chromatic mode
-                    </label>
-                    <p class="instruction-text" id="instructionText" style="margin-top: 0.5rem; color: #a0a0a0; font-size: 0.9rem;">Tap spectrum to toggle feedback</p>
-                </div>
+                <p class="instruction-text" id="instructionText" style="margin-top: 1rem; color: #a0a0a0; font-size: 0.9rem;">Tap spectrum to toggle feedback</p>
             </div>
         </header>
 
         <main>
-            <div class="display-container">
+            <div class="display-container" style="position: relative;">
                 <canvas id="spectrum"></canvas>
-
+                <!-- Mode toggle overlay on spectrum -->
+                <div style="position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px;">
+                    <label class="checkbox-container" style="color: #fff; font-size: 0.9rem; cursor: pointer;">
+                        <input type="checkbox" id="chromaticModeFFT" style="margin-right: 0.5rem; cursor: pointer;">
+                        Chromatic mode
+                    </label>
+                </div>
             </div>
         </main>
 

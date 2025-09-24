@@ -68,5 +68,11 @@ tag: stats
 	echo "Tagged $$VERSION. Run 'make update-stable' to update stable release." && \
 	$(MAKE) update-stable
 
-deploy: lint update-version
+deploy: lint update-version sync-to-root
 	git add -A && git commit -m "Auto-commit from make deploy 🤖" && git push
+
+sync-to-root:
+	@echo "Syncing latest app to root for live site..."
+	@cp docs/latest/index.html docs/index.html
+	@cp docs/latest/app.js docs/app.js
+	@cp docs/latest/style.css docs/style.css

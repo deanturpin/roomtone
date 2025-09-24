@@ -5,364 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ROOMTONE</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 800px;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .hero-section {
-            background: radial-gradient(circle at center, rgba(0, 212, 170, 0.1) 0%, transparent 70%);
-            border-radius: 20px;
-            padding: 3rem 2rem;
-            margin-bottom: 3rem;
-            border: 1px solid rgba(0, 212, 170, 0.1);
-        }
-
-        h1 {
-            font-size: 5rem;
-            font-weight: 200;
-            letter-spacing: 0.3em;
-            margin-bottom: 1.5rem;
-            background: linear-gradient(45deg, #00d4aa, #00a8ff, #ff6b6b);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 0 30px rgba(0, 212, 170, 0.3);
-            animation: glow 3s ease-in-out infinite alternate;
-            position: relative;
-        }
-
-        @keyframes glow {
-            from {
-                filter: drop-shadow(0 0 10px rgba(0, 212, 170, 0.4));
-            }
-            to {
-                filter: drop-shadow(0 0 20px rgba(0, 168, 255, 0.6));
-            }
-        }
-
-        h1::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
-            animation: shimmer 4s infinite;
-            pointer-events: none;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .subtitle {
-            font-size: 1.2rem;
-            color: #a0a0a0;
-            margin-bottom: 3rem;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .description {
-            font-size: 1rem;
-            color: #c0c0c0;
-            margin-bottom: 3rem;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .version-links {
-            display: flex;
-            gap: 2rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 3rem;
-        }
-
-        .version-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 2rem;
-            min-width: 250px;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .version-card:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(0, 212, 170, 0.5);
-            transform: translateY(-2px);
-        }
-
-        .version-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
-            color: #00d4aa;
-        }
-
-        .version-subtitle {
-            color: #a0a0a0;
-            margin-bottom: 1rem;
-        }
-
-        .version-description {
-            font-size: 0.9rem;
-            color: #c0c0c0;
-        }
-
-        .features {
-            text-align: left;
-            max-width: 600px;
-            margin: 0 auto 3rem;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            padding: 2rem;
-        }
-
-        .features h3 {
-            color: #00d4aa;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
-        }
-
-        .features ul {
-            list-style: none;
-        }
-
-        .features li {
-            margin-bottom: 0.5rem;
-            color: #c0c0c0;
-        }
-
-        .features li:before {
-            content: "◆ ";
-            color: #00d4aa;
-            margin-right: 0.5rem;
-        }
-
-        .stats {
-            text-align: center;
-            max-width: 600px;
-            margin: 0 auto 3rem;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            padding: 2rem;
-        }
-
-        .stats h3 {
-            color: #00d4aa;
-            margin-bottom: 1.5rem;
-            font-size: 1.3rem;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .stat-item {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 6px;
-            padding: 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .stat-number {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #00a8ff;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-label {
-            font-size: 0.8rem;
-            color: #a0a0a0;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stats-loading {
-            color: #a0a0a0;
-            font-style: italic;
-        }
-
-        .footer {
-            color: #808080;
-            font-size: 0.9rem;
-        }
-
-        .footer a {
-            color: #00a8ff;
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 3rem;
-                letter-spacing: 0.2em;
-            }
-
-            .container {
-                padding: 1rem;
-            }
-
-            .version-links {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .version-card {
-                width: 100%;
-                max-width: 300px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            h1 {
-                font-size: 2.2rem;
-                letter-spacing: 0.15em;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <div class="hero-section">
-            <h1>ROOMTONE</h1>
-
-            <p class="subtitle">
-                Real-time frequency analyser with musical key detection and bass tone generation
-            </p>
+        <!-- Logo stays visible -->
+        <div class="logo-section" style="position: fixed; top: 20px; left: 20px; z-index: 1000;">
+            <canvas id="toneWave" width="120" height="30" style="display: none;"></canvas>
         </div>
 
-        <p class="description">
-            Every room has its own acoustic signature. ROOMTONE discovers those frequencies
-            and uses them to generate complementary bass tones, creating ambient music
-            perfectly tuned to your space. Features live spectrum analysis, MIDI keyboard
-            support, and musical key detection.
-        </p>
+        <header>
+            <div class="title-section">
+                <div class="title-with-wave">
+                    <h1>ROOMTONE</h1>
+                </div>
+                <p class="version" id="version"></p>
+            </div>
+        </header>
 
-        <div class="features">
-            <h3>Key Features</h3>
-            <ul>
-                <li>Real-time FFT frequency analysis with musical note identification</li>
-                <li>MIDI keyboard input for live performance</li>
-                <li>Bass tone generation for room tone foundation</li>
-                <li>Musical key detection using harmonic scoring</li>
-                <li>Canvas-based spectrum and waveform visualisation</li>
-                <li>Privacy-first: all processing happens locally</li>
-            </ul>
+        <!-- Centered START button overlay -->
+        <div id="startOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); z-index: 2000;">
+            <button id="toggleBtn" class="btn-primary" style="font-size: 1.5rem; padding: 1.5rem 3rem; border-radius: 50px; cursor: pointer;">START</button>
+            <p style="color: #a0a0a0; margin-top: 2rem; font-size: 0.9rem;">Spacebar to toggle feedback</p>
         </div>
 
-        <div class="version-links">
-            <a href="/roomtone/stable/" class="version-card">
-                <div class="version-title">Stable</div>
-                <div class="version-subtitle">Tagged releases</div>
-                <div class="version-description">
-                    Production-ready version with tested features.
-                    Updated with major releases and bug fixes.
+        <main>
+            <div class="display-container" style="position: relative;">
+                <canvas id="spectrum"></canvas>
+                <!-- Mode toggle overlay on spectrum -->
+                <div style="position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px;">
+                    <label class="checkbox-container" style="color: #fff; font-size: 0.9rem; cursor: pointer; display: block;">
+                        <input type="checkbox" id="feedbackMode" style="margin-right: 0.5rem; cursor: pointer;">
+                        Feedback 🎙️
+                    </label>
+                    <label class="checkbox-container" style="color: #fff; font-size: 0.9rem; cursor: pointer; display: block; margin-top: 8px;">
+                        <input type="checkbox" id="chromaticModeFFT" style="margin-right: 0.5rem; cursor: pointer;">
+                        Spooky 👻
+                    </label>
+                    <label class="checkbox-container" style="color: #fff; font-size: 0.9rem; cursor: pointer; display: block; margin-top: 8px;">
+                        <input type="checkbox" id="ambienceMode" style="margin-right: 0.5rem; cursor: pointer;" checked>
+                        Rain 🌧️
+                    </label>
                 </div>
-            </a>
 
-            <a href="/roomtone/latest/" class="version-card">
-                <div class="version-title">Latest</div>
-                <div class="version-subtitle">Development build</div>
-                <div class="version-description">
-                    Bleeding edge features and improvements.
-                    Updated with every commit during development.
-                </div>
-            </a>
-        </div>
+                <!-- Simple piano keyboard -->
+                <div id="piano" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px;">
+                    <div style="position: relative; display: flex; gap: 1px;">
+                        <!-- White keys -->
+                        <button class="piano-key white" data-freq="261.63" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="293.66" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="329.63" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="349.23" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="392.00" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="440.00" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="493.88" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="523.25" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
 
-        <div class="stats" id="statsSection">
-            <h3>Project Statistics</h3>
-            <div class="stats-loading" id="statsLoading">Loading statistics...</div>
-            <div id="statsContent" style="display: none;">
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <div class="stat-number" id="totalLines">-</div>
-                        <div class="stat-label">Lines of Code</div>
+                        <!-- Black keys positioned absolutely -->
+                        <button class="piano-key black" data-freq="277.18" style="position: absolute; left: 25px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="311.13" style="position: absolute; left: 56px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="369.99" style="position: absolute; left: 118px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="415.30" style="position: absolute; left: 149px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="466.16" style="position: absolute; left: 180px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
                     </div>
-                    <div class="stat-item">
-                        <div class="stat-number" id="totalCommits">-</div>
-                        <div class="stat-label">Commits</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number" id="totalFiles">-</div>
-                        <div class="stat-label">Source Files</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number" id="jsLines">-</div>
-                        <div class="stat-label">JavaScript</div>
-                    </div>
-                </div>
-                <div style="font-size: 0.8rem; color: #666; margin-top: 1rem;">
-                    Last updated: <span id="lastUpdated">-</span>
                 </div>
             </div>
-        </div>
+        </main>
 
-        <div class="footer">
-            <p>
-                Built with Web Audio API and Canvas 2D •
-                <a href="https://github.com/deanturpin/roomtone">View on GitHub</a>
-            </p>
-        </div>
     </div>
 
+    <script src="version.js"></script>
+    <script src="app.js"></script>
+    <script src="auto-refresh.js"></script>
     <script>
-        // Load and display statistics
-        fetch('stats.json')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('totalLines').textContent = data.lines.total.toLocaleString();
-                document.getElementById('totalCommits').textContent = data.git.commits.toLocaleString();
-                document.getElementById('totalFiles').textContent = data.files.total.toLocaleString();
-                document.getElementById('jsLines').textContent = data.lines.javascript.toLocaleString();
-
-                const date = new Date(data.generated);
-                document.getElementById('lastUpdated').textContent = date.toLocaleDateString();
-
-                document.getElementById('statsLoading').style.display = 'none';
-                document.getElementById('statsContent').style.display = 'block';
-            })
-            .catch(error => {
-                console.warn('Could not load statistics:', error);
-                document.getElementById('statsLoading').textContent = 'Statistics not available';
-            });
+        const versionElement = document.getElementById('version');
+        const link = document.createElement('a');
+        link.href = `https://github.com/deanturpin/roomtone/commit/${GIT_VERSION}`;
+        link.textContent = `${GIT_VERSION}: ${GIT_SUMMARY}`;
+        link.target = '_blank';
+        link.style.color = 'inherit';
+        link.style.textDecoration = 'none';
+        link.title = 'View commit on GitHub';
+        versionElement.appendChild(link);
     </script>
 </body>
 </html>

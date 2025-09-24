@@ -15,7 +15,9 @@ class RoomtoneAnalyser {
 
 
         this.toggleBtn = document.getElementById('toggleBtn');
+        this.feedbackCheckbox = document.getElementById('feedbackMode');
         this.chromaticModeCheckbox = document.getElementById('chromaticModeFFT');
+        this.ambienceCheckbox = document.getElementById('ambienceMode');
         this.activePianoTones = new Map();
 
         // Note: activeNotes and activeChord elements removed
@@ -126,8 +128,6 @@ class RoomtoneAnalyser {
         this.spectrumCanvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
         this.spectrumCanvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
 
-        // Add click/tap event for audio feedback toggle
-        this.spectrumCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
     }
 
     handleMouseMove(event) {
@@ -174,18 +174,6 @@ class RoomtoneAnalyser {
         this.spectrumCanvas.style.cursor = 'default';
     }
 
-    handleCanvasClick(event) {
-        // Only toggle feedback if not dragging threshold
-        if (!this.isDraggingThreshold) {
-            const rect = this.spectrumCanvas.getBoundingClientRect();
-            const y = event.clientY - rect.top;
-
-            // Don't toggle if clicking near threshold line
-            if (!this.isNearThresholdLine(y)) {
-                this.toggleAudioFeedback();
-            }
-        }
-    }
 
     handleTouchStart(event) {
         event.preventDefault();
@@ -215,15 +203,6 @@ class RoomtoneAnalyser {
     handleTouchEnd(event) {
         if (this.isDraggingThreshold) {
             this.isDraggingThreshold = false;
-        } else {
-            // Handle tap to toggle feedback
-            const touch = event.changedTouches[0];
-            const rect = this.spectrumCanvas.getBoundingClientRect();
-            const y = touch.clientY - rect.top;
-
-            if (!this.isNearThresholdLine(y)) {
-                this.toggleAudioFeedback();
-            }
         }
     }
 
@@ -258,12 +237,44 @@ class RoomtoneAnalyser {
             }
         });
 
+        // Bind feedback checkbox
+        if (this.feedbackCheckbox) {
+            this.feedbackCheckbox.addEventListener('change', (e) => {
+                this.audioFeedbackEnabled = e.target.checked;
+                console.log('Feedback:', this.audioFeedbackEnabled ? 'ON' : 'OFF');
+                if (!this.audioFeedbackEnabled) {
+                    this.stopAllToneGeneration();
+                }
+            });
+            // Initialize feedback state from checkbox
+            this.audioFeedbackEnabled = this.feedbackCheckbox.checked;
+        }
+
         // Bind chromatic mode checkbox
         if (this.chromaticModeCheckbox) {
             this.chromaticModeCheckbox.addEventListener('change', (e) => {
                 this.chromaticMode = e.target.checked;
-                console.log('Chromatic mode:', this.chromaticMode ? 'ON' : 'OFF');
+                console.log('Spooky mode:', this.chromaticMode ? 'ON' : 'OFF');
             });
+        }
+
+        // Bind ambience checkbox
+        if (this.ambienceCheckbox) {
+            this.ambienceCheckbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    if (this.audioContext) {
+                        this.startRainAmbience();
+                    }
+                } else {
+                    this.stopJungleAmbience();
+                }
+                console.log('Rain ambience:', e.target.checked ? 'ON' : 'OFF');
+            });
+
+            // Start rain by default when audio starts
+            if (this.ambienceCheckbox.checked && this.audioContext) {
+                this.startRainAmbience();
+            }
         }
 
         this.bindKeyboardEvents();
@@ -275,7 +286,11 @@ class RoomtoneAnalyser {
             // Only handle spacebar if we're not in an input field
             if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
                 e.preventDefault();
-                this.toggleAudioFeedback();
+                // Toggle the feedback checkbox which will trigger its change event
+                if (this.feedbackCheckbox) {
+                    this.feedbackCheckbox.checked = !this.feedbackCheckbox.checked;
+                    this.feedbackCheckbox.dispatchEvent(new Event('change'));
+                }
             }
         });
     }
@@ -458,6 +473,25 @@ class RoomtoneAnalyser {
 
             this.isRunning = true;
 
+            // Fade out and hide the START button overlay
+            const startOverlay = document.getElementById('startOverlay');
+            if (startOverlay) {
+                startOverlay.style.transition = 'opacity 0.5s ease-out';
+                startOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    startOverlay.style.display = 'none';
+                }, 500); // Wait for fade to complete
+            }
+
+            // Start rain ambience if checkbox is checked
+            if (this.ambienceCheckbox && this.ambienceCheckbox.checked) {
+                setTimeout(() => {
+                    if (this.audioContext && this.isRunning) {
+                        this.startRainAmbience();
+                    }
+                }, 500); // Small delay to ensure everything is initialized
+            }
+
             // Hide the entire header after starting
             const header = document.querySelector('header');
             if (header) {
@@ -498,15 +532,20 @@ class RoomtoneAnalyser {
             this.audioContext.close();
         }
 
+        // Show the START button overlay again
+        const startOverlay = document.getElementById('startOverlay');
+        if (startOverlay) {
+            startOverlay.style.display = 'flex';
+            startOverlay.style.opacity = '1';
+        }
+
         // Show the header again when stopping
         const header = document.querySelector('header');
         if (header) {
-            header.style.display = 'flex';
+            header.style.display = 'block';
         }
 
-        this.toggleBtn.textContent = 'Start Listening';
-        this.toggleBtn.classList.remove('btn-secondary');
-        this.toggleBtn.classList.add('btn-primary');
+        this.toggleBtn.textContent = 'START';
 
         this.clearCanvases();
     }
@@ -925,18 +964,17 @@ class RoomtoneAnalyser {
                     // Chromatic mode: play the second peak directly
                     this.playPeakTone(secondPeak.freq, secondPeak.value);
                 } else {
-                    // Harmonic mode: play octave, perfect fifth, or perfect fourth below
+                    // Harmonic mode: play major third or perfect fifth above
                     const baseFreq = secondPeak.freq;
-                    // Use lower harmonics for more melodious bass tones
+                    // Use upper harmonics for brighter, more melodious tones
                     const harmonics = [
-                        0.5,   // Octave below
-                        0.667, // Perfect fifth below (2:3)
-                        0.75   // Perfect fourth below (3:4)
+                        1.25,  // Major third above (5:4)
+                        1.5    // Perfect fifth above (3:2)
                     ];
                     const harmonicMultiplier = harmonics[Math.floor(Math.random() * harmonics.length)];
                     const harmonicFreq = baseFreq * harmonicMultiplier;
-                    // Only play if in reasonable frequency range (50-500 Hz for bass)
-                    if (harmonicFreq > 50 && harmonicFreq < 500) {
+                    // Only play if in reasonable frequency range (50-2000 Hz)
+                    if (harmonicFreq > 50 && harmonicFreq < 2000) {
                         this.playPeakTone(harmonicFreq, secondPeak.value);
                     }
                 }

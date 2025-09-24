@@ -76,3 +76,6 @@ sync-to-root:
 	@cp docs/latest/index.html docs/index.html
 	@cp docs/latest/app.js docs/app.js
 	@cp docs/latest/style.css docs/style.css
+	@cp docs/latest/version.js docs/version.js
+	@cp docs/latest/favicon.svg docs/favicon.svg
+	@cp docs/latest/auto-refresh.js docs/auto-refresh.js

@@ -15,7 +15,7 @@ class RoomtoneAnalyser {
 
 
         this.toggleBtn = document.getElementById('toggleBtn');
-        this.piano = document.getElementById('piano');
+        this.chromaticModeCheckbox = document.getElementById('chromaticMode');
         this.activePianoTones = new Map();
 
         // Note: activeNotes and activeChord elements removed
@@ -38,6 +38,9 @@ class RoomtoneAnalyser {
         // Audio feedback control
         this.audioFeedbackEnabled = true;
 
+        // Chromatic mode (false = harmonic thirds/fifths only, true = chromatic second peak)
+        this.chromaticMode = false;
+
         // Room mode detection
         this.frequencyHistory = new Map();
         this.roomModes = [];
@@ -47,7 +50,12 @@ class RoomtoneAnalyser {
         // Tone generation
         this.oscillators = [];
         this.gainNode = null;
+
+        // Audio effects
         this.reverbNode = null;
+        this.delayNode = null;
+        this.delayFeedbackNode = null;
+        this.delayGainNode = null;
         this.currentToneKey = null;
         this.harmonicOscillators = new Map(); // Track individual harmonic oscillators
         this.settledFrequencies = new Map(); // Track frequencies that have settled
@@ -67,9 +75,6 @@ class RoomtoneAnalyser {
         this.jungleGain = null;
         this.jungleEnabled = false;
 
-        // MIDI support
-        this.midiAccess = null;
-        this.activeMidiNotes = new Map(); // Track active MIDI notes
 
         // Synth parameters (optimized defaults)
         this.synthParams = {
@@ -94,7 +99,6 @@ class RoomtoneAnalyser {
         this.setupCanvases();
         this.setupCanvasEvents();
         this.bindEvents();
-        this.setupMIDI();
     }
 
     setupCanvases() {
@@ -253,7 +257,15 @@ class RoomtoneAnalyser {
                 console.error('Error in toggle():', error);
             }
         });
-        this.bindPianoEvents();
+
+        // Bind chromatic mode checkbox
+        if (this.chromaticModeCheckbox) {
+            this.chromaticModeCheckbox.addEventListener('change', (e) => {
+                this.chromaticMode = e.target.checked;
+                console.log('Chromatic mode:', this.chromaticMode ? 'ON' : 'OFF');
+            });
+        }
+
         this.bindKeyboardEvents();
     }
 
@@ -336,78 +348,54 @@ class RoomtoneAnalyser {
         this.stopToneGeneration();
     }
 
-    bindPianoEvents() {
-        const pianoKeys = this.piano.querySelectorAll('.piano-key');
-        this.isDragging = false;
-        this.currentDragKey = null;
 
-        pianoKeys.forEach(key => {
-            key.addEventListener('mousedown', (e) => {
-                this.isDragging = true;
-                this.playPianoKey(e.target);
-                e.preventDefault();
-            });
+    setupAudioEffects() {
+        // Create reverb using impulse response
+        this.reverbNode = this.audioContext.createConvolver();
 
-            key.addEventListener('mouseenter', (e) => {
-                if (this.isDragging) {
-                    if (this.currentDragKey && this.currentDragKey !== e.target) {
-                        this.stopPianoKey(this.currentDragKey);
-                    }
-                    this.playPianoKey(e.target);
-                }
-            });
+        // Create a simple reverb impulse response
+        const sampleRate = this.audioContext.sampleRate;
+        const length = sampleRate * 2; // 2 second reverb
+        const impulse = this.audioContext.createBuffer(2, length, sampleRate);
 
-            key.addEventListener('mouseleave', (e) => {
-                if (!this.isDragging) {
-                    this.stopPianoKey(e.target);
-                }
-            });
-        });
-
-        // Global mouse up to stop dragging
-        document.addEventListener('mouseup', () => {
-            if (this.isDragging) {
-                this.isDragging = false;
-                if (this.currentDragKey) {
-                    this.stopPianoKey(this.currentDragKey);
-                    this.currentDragKey = null;
-                }
+        for (let channel = 0; channel < 2; channel++) {
+            const channelData = impulse.getChannelData(channel);
+            for (let i = 0; i < length; i++) {
+                const decay = Math.pow(1 - i / length, 2);
+                channelData[i] = (Math.random() * 2 - 1) * decay;
             }
-        });
+        }
+        this.reverbNode.buffer = impulse;
 
-        // Touch events for mobile
-        pianoKeys.forEach(key => {
-            key.addEventListener('touchstart', (e) => {
-                this.isDragging = true;
-                this.currentDragKey = e.target;
-                this.playPianoKey(e.target);
-                e.preventDefault();
-            });
+        // Create delay line
+        this.delayNode = this.audioContext.createDelay(1.0); // Max 1 second delay
+        this.delayNode.delayTime.setValueAtTime(0.3, this.audioContext.currentTime); // 300ms delay
 
-            key.addEventListener('touchmove', (e) => {
-                if (this.isDragging) {
-                    const touch = e.touches[0];
-                    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-                    if (element && element.classList.contains('piano-key') && element !== this.currentDragKey) {
-                        if (this.currentDragKey) {
-                            this.stopPianoKey(this.currentDragKey);
-                        }
-                        this.currentDragKey = element;
-                        this.playPianoKey(element);
-                    }
-                }
-                e.preventDefault();
-            });
+        // Create delay feedback
+        this.delayFeedbackNode = this.audioContext.createGain();
+        this.delayFeedbackNode.gain.setValueAtTime(0.4, this.audioContext.currentTime); // 40% feedback
 
-            key.addEventListener('touchend', (e) => {
-                this.isDragging = false;
-                if (this.currentDragKey) {
-                    this.stopPianoKey(this.currentDragKey);
-                    this.currentDragKey = null;
-                }
-                e.preventDefault();
-            });
-        });
+        // Create delay mix control
+        this.delayGainNode = this.audioContext.createGain();
+        this.delayGainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime); // 30% wet signal
+
+        // Connect delay feedback loop
+        this.delayNode.connect(this.delayFeedbackNode);
+        this.delayFeedbackNode.connect(this.delayNode);
+        this.delayNode.connect(this.delayGainNode);
+
+        // Create master effects input node
+        this.effectsInputNode = this.audioContext.createGain();
+        this.effectsInputNode.gain.setValueAtTime(1.0, this.audioContext.currentTime);
+
+        // Connect effects chain: input -> reverb + delay -> destination
+        this.effectsInputNode.connect(this.reverbNode);
+        this.effectsInputNode.connect(this.delayNode);
+        this.reverbNode.connect(this.audioContext.destination);
+        this.delayGainNode.connect(this.audioContext.destination);
+
+        // Also connect dry signal
+        this.effectsInputNode.connect(this.audioContext.destination);
     }
 
     toggle() {
@@ -431,6 +419,9 @@ class RoomtoneAnalyser {
             if (this.audioContext.state === 'suspended') {
                 await this.audioContext.resume();
             }
+
+            // Setup audio effects
+            this.setupAudioEffects();
 
             console.log('Requesting microphone access...');
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -473,7 +464,6 @@ class RoomtoneAnalyser {
                 header.style.display = 'none';
             }
 
-            this.piano.style.display = 'flex';
 
             this.draw();
         } catch (error) {
@@ -505,7 +495,6 @@ class RoomtoneAnalyser {
         if (this.audioContext) {
             this.stopToneGeneration();
             this.stopJungleAmbience();
-            this.stopAllMIDINotes();
             this.audioContext.close();
         }
 
@@ -518,7 +507,6 @@ class RoomtoneAnalyser {
         this.toggleBtn.textContent = 'Start Listening';
         this.toggleBtn.classList.remove('btn-secondary');
         this.toggleBtn.classList.add('btn-primary');
-        this.piano.style.display = 'none';
 
         this.clearCanvases();
     }
@@ -556,11 +544,7 @@ class RoomtoneAnalyser {
 
             // Connect through reverb for ambient effect
             peakOsc.connect(peakGain);
-            if (this.reverbNode) {
-                peakGain.connect(this.reverbNode);
-            } else {
-                peakGain.connect(this.audioContext.destination);
-            }
+            peakGain.connect(this.effectsInputNode);
 
             // Store reference to current primary peak for fading
             this.currentPrimaryPeakGain = peakGain;
@@ -584,7 +568,7 @@ class RoomtoneAnalyser {
     createPianoTone(frequency, velocity = 1.0, note = '') {
         if (!this.audioContext) return null;
 
-        // Play manual input (piano/MIDI) at original frequency
+        // Play manual input at original frequency
         let playbackFrequency = frequency;
 
         if (this.activePianoTones.has(playbackFrequency)) return null; // Already playing
@@ -625,9 +609,9 @@ class RoomtoneAnalyser {
             harmonicOsc1.connect(harmonicGain1);
             harmonicOsc2.connect(harmonicGain2);
 
-            pianoGain.connect(this.audioContext.destination);
-            harmonicGain1.connect(this.audioContext.destination);
-            harmonicGain2.connect(this.audioContext.destination);
+            pianoGain.connect(this.effectsInputNode);
+            harmonicGain1.connect(this.effectsInputNode);
+            harmonicGain2.connect(this.effectsInputNode);
 
             fundamentalOsc.start();
             harmonicOsc1.start();
@@ -935,9 +919,18 @@ class RoomtoneAnalyser {
 
             // Generate tone only if there are multiple peaks (to avoid feedback)
             if (this.audioFeedbackEnabled && prominentPeaks.length > 1 && tonePeak.value > this.thresholdValue * 1.2) {
-                // Always play the second peak to avoid feedback
                 const secondPeak = prominentPeaks[1];
-                this.playPeakTone(secondPeak.freq, secondPeak.value);
+
+                if (this.chromaticMode) {
+                    // Chromatic mode: play the second peak directly
+                    this.playPeakTone(secondPeak.freq, secondPeak.value);
+                } else {
+                    // Harmonic mode: play third or fifth harmonic of the second peak
+                    const baseFreq = secondPeak.freq;
+                    const harmonicMultiplier = Math.random() > 0.5 ? 1.25 : 1.5; // Third (5:4) or fifth (3:2)
+                    const harmonicFreq = baseFreq * harmonicMultiplier;
+                    this.playPeakTone(harmonicFreq, secondPeak.value);
+                }
 
                 // Start background recording for reversed audio when peaks are strong
                 if (!this.isRecording) {
@@ -1707,8 +1700,7 @@ class RoomtoneAnalyser {
         this.gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime); // Default volume
 
         // Connect audio chain
-        this.gainNode.connect(this.reverbNode);
-        this.reverbNode.connect(this.audioContext.destination);
+        this.gainNode.connect(this.effectsInputNode);
 
         // Setup background recording
         this.setupBackgroundRecording();
@@ -2155,11 +2147,7 @@ class RoomtoneAnalyser {
         this.jungleGain.gain.setValueAtTime(0.001, this.audioContext.currentTime);
         this.jungleGain.gain.exponentialRampToValueAtTime(0.15, this.audioContext.currentTime + 3); // Gentle rain volume
 
-        if (this.reverbNode) {
-            this.jungleGain.connect(this.reverbNode);
-        } else {
-            this.jungleGain.connect(this.audioContext.destination);
-        }
+        this.jungleGain.connect(this.effectsInputNode);
 
         // Create multiple layers of rain sounds
         this.createRainDrops();
@@ -2327,124 +2315,6 @@ class RoomtoneAnalyser {
         this.jungleOscillators = [];
     }
 
-    async setupMIDI() {
-        if (!navigator.requestMIDIAccess) {
-            console.warn('Web MIDI API not supported in this browser');
-            return;
-        }
-
-        try {
-            this.midiAccess = await navigator.requestMIDIAccess();
-
-            // Set up input handlers
-            for (const input of this.midiAccess.inputs.values()) {
-                input.onmidimessage = (event) => this.handleMIDIMessage(event);
-            }
-
-            // Handle device connection/disconnection
-            this.midiAccess.onstatechange = (event) => {
-                if (event.port.type === 'input') {
-                    if (event.port.state === 'connected') {
-                        event.port.onmidimessage = (event) => this.handleMIDIMessage(event);
-                    }
-                }
-            };
-
-            console.log('MIDI access granted - connect your USB keyboard!');
-        } catch (error) {
-            console.warn('Failed to get MIDI access:', error);
-        }
-    }
-
-    handleMIDIMessage(event) {
-        const [command, note, velocity] = event.data;
-
-        // Note on (144 + channel) or note on with velocity > 0
-        if ((command >= 144 && command <= 159 && velocity > 0) ||
-            (command >= 128 && command <= 143 && velocity > 0)) {
-            this.playMIDINote(note, velocity);
-        }
-        // Note off (128 + channel) or note on with velocity 0
-        else if ((command >= 128 && command <= 143) ||
-                 (command >= 144 && command <= 159 && velocity === 0)) {
-            this.stopMIDINote(note);
-        }
-    }
-
-    playMIDINote(midiNote, velocity) {
-        if (!this.audioContext) return;
-
-        // Convert MIDI note to frequency
-        const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
-
-        // Use original frequency for MIDI input
-        const playbackFrequency = frequency;
-
-        // Don't play if already active (check both MIDI notes and piano tones)
-        if (this.activeMidiNotes.has(midiNote) || this.activePianoTones.has(playbackFrequency)) return;
-
-        // Convert MIDI note to note name for display
-        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        const octave = Math.floor(midiNote / 12) - 1;
-        const noteName = noteNames[midiNote % 12] + octave;
-
-        // Use unified piano tone creation with velocity scaling
-        const velocityScale = velocity / 127;
-        const toneData = this.createPianoTone(frequency, velocityScale, noteName);
-
-        if (toneData) {
-            // Store MIDI note mapping for proper cleanup
-            this.activeMidiNotes.set(midiNote, {
-                originalFrequency: frequency,
-                playbackFrequency: playbackFrequency,
-                toneData: toneData,
-                velocity: velocity
-            });
-        }
-    }
-
-    stopMIDINote(midiNote) {
-        if (!this.activeMidiNotes.has(midiNote)) return;
-
-        const midiData = this.activeMidiNotes.get(midiNote);
-        const frequency = midiData.playbackFrequency;
-
-        // Remove from MIDI tracking
-        this.activeMidiNotes.delete(midiNote);
-
-        // Use the same sustained release as piano keys
-        if (this.activePianoTones.has(frequency)) {
-            const tone = this.activePianoTones.get(frequency);
-
-            // Sustained release for realistic piano sound (same as piano keyboard)
-            const sustainTime = 2.5; // 2.5 second sustain
-            const releaseTime = 0.5;  // 0.5 second release
-
-            tone.gains.forEach(gain => {
-                if (gain) {
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + releaseTime);
-                }
-            });
-
-            setTimeout(() => {
-                tone.oscillators.forEach(osc => {
-                    try {
-                        osc.stop();
-                    } catch (e) {
-                        // Already stopped
-                    }
-                });
-                this.activePianoTones.delete(frequency);
-            }, sustainTime * 1000 + 100); // Convert to milliseconds and add buffer
-        }
-    }
-
-    stopAllMIDINotes() {
-        // Stop all active MIDI notes using the new unified system
-        for (const [midiNote] of this.activeMidiNotes) {
-            this.stopMIDINote(midiNote);
-        }
-    }
 
     stopToneGeneration() {
         this.oscillators.forEach(osc => {

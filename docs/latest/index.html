@@ -23,7 +23,13 @@
             </div>
             <div class="header-controls">
                 <button id="toggleBtn" class="btn-primary">Start Listening</button>
-                <p class="instruction-text" id="instructionText" style="margin-top: 1rem; color: #a0a0a0; font-size: 0.9rem;">Tap spectrum to toggle feedback</p>
+                <div class="controls-section" style="margin-top: 1rem;">
+                    <label class="checkbox-container" style="color: #a0a0a0; font-size: 0.9rem;">
+                        <input type="checkbox" id="chromaticMode" style="margin-right: 0.5rem;">
+                        Chromatic mode
+                    </label>
+                    <p class="instruction-text" id="instructionText" style="margin-top: 0.5rem; color: #a0a0a0; font-size: 0.9rem;">Tap spectrum to toggle feedback</p>
+                </div>
             </div>
         </header>
 
@@ -34,37 +40,6 @@
             </div>
         </main>
 
-        <div id="piano" class="piano" style="display: none;">
-            <div class="key-group">
-                <div class="piano-key white" data-freq="65.407" data-note="C2">C</div>
-                <div class="piano-key black" data-freq="68.780" data-note="C#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="72.822" data-note="D2">D</div>
-                <div class="piano-key black" data-freq="76.393" data-note="D#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="81.888" data-note="E2">E</div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="86.818" data-note="F2">F</div>
-                <div class="piano-key black" data-freq="91.225" data-note="F#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="97.393" data-note="G2">G</div>
-                <div class="piano-key black" data-freq="102.230" data-note="G#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="108.960" data-note="A2">A</div>
-                <div class="piano-key black" data-freq="114.183" data-note="A#2"></div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="122.813" data-note="B2">B</div>
-            </div>
-            <div class="key-group">
-                <div class="piano-key white" data-freq="130.813" data-note="C3">C</div>
-            </div>
-        </div>
     </div>
 
     <script src="version.js"></script>

@@ -24,8 +24,9 @@
         </header>
 
         <!-- Centered START button overlay -->
-        <div id="startOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); z-index: 2000;">
+        <div id="startOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); z-index: 2000;">
             <button id="toggleBtn" class="btn-primary" style="font-size: 1.5rem; padding: 1.5rem 3rem; border-radius: 50px; cursor: pointer;">START</button>
+            <p style="color: #a0a0a0; margin-top: 2rem; font-size: 0.9rem;">Spacebar to toggle feedback</p>
         </div>
 
         <main>
@@ -45,6 +46,20 @@
                         <input type="checkbox" id="ambienceMode" style="margin-right: 0.5rem; cursor: pointer;" checked>
                         Rain 🌧️
                     </label>
+                </div>
+
+                <!-- Simple piano keyboard -->
+                <div id="piano" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px;">
+                    <div style="display: flex; gap: 2px;">
+                        <button class="piano-key" data-freq="261.63" style="width: 30px; height: 60px; background: white; border: 1px solid #333; cursor: pointer;">C</button>
+                        <button class="piano-key" data-freq="293.66" style="width: 30px; height: 60px; background: white; border: 1px solid #333; cursor: pointer;">D</button>
+                        <button class="piano-key" data-freq="329.63" style="width: 30px; height: 60px; background: white; border: 1px solid #333; cursor: pointer;">E</button>
+                        <button class="piano-key" data-freq="349.23" style="width: 30px; height: 60px; background: white; border: 1px solid #333; cursor: pointer;">F</button>
+                        <button class="piano-key" data-freq="392.00" style="width: 30px; height: 60px; background: white; border: 1px solid #333; cursor: pointer;">G</button>
+                        <button class="piano-key" data-freq="440.00" style="width: 30px; height: 60px; background: white; border: 1px solid #333; cursor: pointer;">A</button>
+                        <button class="piano-key" data-freq="493.88" style="width: 30px; height: 60px; background: white; border: 1px solid #333; cursor: pointer;">B</button>
+                        <button class="piano-key" data-freq="523.25" style="width: 30px; height: 60px; background: white; border: 1px solid #333; cursor: pointer;">C</button>
+                    </div>
                 </div>
             </div>
         </main>

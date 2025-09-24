@@ -18,6 +18,7 @@ class RoomtoneAnalyser {
         this.feedbackCheckbox = document.getElementById('feedbackMode');
         this.chromaticModeCheckbox = document.getElementById('chromaticModeFFT');
         this.ambienceCheckbox = document.getElementById('ambienceMode');
+        this.piano = document.getElementById('piano');
         this.activePianoTones = new Map();
 
         // Note: activeNotes and activeChord elements removed
@@ -278,6 +279,64 @@ class RoomtoneAnalyser {
         }
 
         this.bindKeyboardEvents();
+        this.bindPianoKeys();
+    }
+
+    bindPianoKeys() {
+        const pianoKeys = document.querySelectorAll('.piano-key');
+        pianoKeys.forEach(key => {
+            key.addEventListener('mousedown', (e) => {
+                const freq = parseFloat(e.target.dataset.freq);
+                this.playPianoTone(freq);
+            });
+
+            key.addEventListener('mouseup', (e) => {
+                const freq = parseFloat(e.target.dataset.freq);
+                this.stopPianoTone(freq);
+            });
+
+            key.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const freq = parseFloat(e.target.dataset.freq);
+                this.playPianoTone(freq);
+            });
+
+            key.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                const freq = parseFloat(e.target.dataset.freq);
+                this.stopPianoTone(freq);
+            });
+        });
+    }
+
+    playPianoTone(frequency) {
+        if (!this.audioContext || this.activePianoTones.has(frequency)) return;
+
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+
+        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.2, this.audioContext.currentTime + 0.05);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(this.effectsInputNode);
+        oscillator.start();
+
+        this.activePianoTones.set(frequency, { oscillator, gainNode });
+    }
+
+    stopPianoTone(frequency) {
+        const tone = this.activePianoTones.get(frequency);
+        if (!tone) return;
+
+        tone.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+        setTimeout(() => {
+            tone.oscillator.stop();
+            this.activePianoTones.delete(frequency);
+        }, 150);
     }
 
     bindKeyboardEvents() {
@@ -496,6 +555,11 @@ class RoomtoneAnalyser {
             const header = document.querySelector('header');
             if (header) {
                 header.style.display = 'none';
+            }
+
+            // Show the piano keyboard
+            if (this.piano) {
+                this.piano.style.display = 'block';
             }
 
 
@@ -966,7 +1030,7 @@ class RoomtoneAnalyser {
                 } else {
                     // Harmonic mode: play major third or perfect fifth above
                     const baseFreq = secondPeak.freq;
-                    // Use upper harmonics for brighter, more melodious tones
+                    // Simple upper harmonics for clean, melodious sound
                     const harmonics = [
                         1.25,  // Major third above (5:4)
                         1.5    // Perfect fifth above (3:2)

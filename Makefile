@@ -10,8 +10,8 @@ help:
 	@echo "  update-stable - Update stable to most recent git tag"
 
 serve: update-version
-	@echo "Starting local server at http://localhost:8000"
-	@cd docs && python3 -m http.server 8000
+	@echo "Starting local server at http://localhost:9001"
+	@cd docs/latest && python3 -m http.server 9001
 
 update-version:
 	@echo "const GIT_VERSION = '$$(git rev-parse --short HEAD)';" > docs/version.js

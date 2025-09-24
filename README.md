@@ -1,16 +1,24 @@
 # roomtone
 
-🎵 **[Try it live](http://turpin.dev/roomtone/)** • [Latest](http://turpin.dev/roomtone/latest/) • [Stable](http://turpin.dev/roomtone/stable/)
+🎵 **[Try it live](http://turpin.dev/roomtone/)** •
+[Latest](http://turpin.dev/roomtone/latest/) •
+[Stable](http://turpin.dev/roomtone/stable/)
 
-Real-time frequency analyser with musical key detection and bass tone generation. Visualises the acoustic spectrum of your space and responds with complementary bass frequencies.
+Real-time frequency analyser with musical key detection and bass tone
+generation. Visualises the acoustic spectrum of your space and responds with
+complementary bass frequencies.
 
 ## Concept
 
-Every room has its own tone - a unique acoustic signature defined by its resonant frequencies. This app discovers those frequencies and uses them as the foundation for generating evolving ambient music that's perfectly tuned to your space.
+Every room has its own tone - a unique acoustic signature defined by its
+resonant frequencies. This app discovers those frequencies and uses them as
+the foundation for generating evolving ambient music that's perfectly tuned
+to your space.
 
 ## Core Features
 
 ### Real-time Analysis
+
 - FFT-based frequency spectrum analysis with logarithmic scaling
 - Peak frequency detection across full spectrum with musical note identification
 - Multi-peak detection for capturing harmonics and overtones
@@ -18,6 +26,7 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 - Musical key detection using harmonic scoring algorithms
 
 ### Visual Display
+
 - Live frequency spectrum visualiser with gradient colouring
 - Waveform display showing time-domain audio
 - 500Hz frequency separator line dividing generation/analysis zones
@@ -25,6 +34,7 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 - Dominant musical key display with confidence-based opacity
 
 ### Tone Generation
+
 - Bass frequency generation for room tone foundation
 - Musical key-based tone selection using root and fifth frequencies
 - MIDI keyboard input for direct frequency control and live performance
@@ -63,28 +73,35 @@ Every room has its own tone - a unique acoustic signature defined by its resonan
 
 The project uses a three-tier deployment system:
 
-- **Landing Page** (`/`): Project overview with enhanced animated banner, live statistics, and links to app versions
-- **Latest** (`/latest/`): Development build automatically updated with every commit via `make deploy`
-- **Stable** (`/stable/`): Production release pointing to the most recent git tag (currently v1.4.0)
+- **Landing Page** (`/`): Project overview with enhanced animated banner,
+  live statistics, and links to app versions
+- **Latest** (`/latest/`): Development build automatically updated with
+  every commit via `make deploy`
+- **Stable** (`/stable/`): Production release pointing to the most recent
+  git tag (currently v1.4.0)
 
 #### Release Workflow
 
 **Development**:
+
 ```bash
 make deploy    # Auto-commit and push latest changes
 ```
 
 **Creating Releases**:
+
 ```bash
 make tag       # Interactive: creates git tag, updates stats, updates stable
 ```
 
 **Manual Stable Update**:
+
 ```bash
 make update-stable    # Updates stable to most recent git tag
 ```
 
-The system intelligently handles different historical file structures and ensures stable always reflects the actual tagged release code.
+The system intelligently handles different historical file structures and
+ensures stable always reflects the actual tagged release code.
 
 ## Current Implementation
 
@@ -128,22 +145,30 @@ The application is built around a single `RoomtoneAnalyser` class that handles:
 ## Use Cases
 
 ### Mindfulness & Wellness
-- **Yoga Classes**: Group hum sets the session's key, app provides harmonic foundation
+
+- **Yoga Classes**: Group hum sets the session's key, app provides harmonic
+  foundation
 - **Meditation**: Gentle tonal support that adapts to natural breathing sounds
 - **Sound Healing**: Responds to singing bowls, chanting, vocal toning
 - **Group Practice**: Creates unified harmonic space from collective voice
 
 ### Creative & Professional
-- **Musical Discovery**: Find your room's acoustic character and resonant frequencies
-- **Live Performance**: Play MIDI keyboard through room's acoustic analysis for responsive performance
+
+- **Musical Discovery**: Find your room's acoustic character and resonant
+  frequencies
+- **Live Performance**: Play MIDI keyboard through room's acoustic analysis
+  for responsive performance
 - **Installation Art**: Site-specific generative music responding to space
 - **Focus Work**: Adaptive ambient atmosphere that responds to environmental sound
-- **Travel**: Transform any space (hotels, airports, studios) with harmonic presence
+- **Travel**: Transform any space (hotels, airports, studios) with harmonic
+  presence
 
 ### Acoustic Exploration
+
 - **Room Analysis**: Understand your space's natural frequency response
 - **Tuning Reference**: Vallotti temperament for historically-informed practice
-- **Harmonic Education**: Visual learning about frequency, resonance, and musical relationships
+- **Harmonic Education**: Visual learning about frequency, resonance, and
+  musical relationships
 
 ## Development Priorities
 
@@ -155,16 +180,23 @@ The application is built around a single `RoomtoneAnalyser` class that handles:
 
 ## MIDI Input Support
 
-Connect a USB MIDI keyboard or controller to play notes directly through the room's acoustic analysis system. The Web MIDI API automatically detects connected devices and processes note on/off messages with velocity sensitivity.
+Connect a USB MIDI keyboard or controller to play notes directly through the
+room's acoustic analysis system. The Web MIDI API automatically detects
+connected devices and processes note on/off messages with velocity
+sensitivity.
 
 ### MIDI Features
-- **Automatic Device Detection**: Plug-and-play support for USB MIDI keyboards
+
+- **Automatic Device Detection**: Plug-and-play support for USB MIDI
+  keyboards
 - **Polyphonic Input**: Multiple simultaneous notes with individual volume control
 - **Velocity Sensitivity**: Note dynamics affect generated tone volume
 - **Real-time Processing**: Immediate response to MIDI input with minimal latency
-- **Frequency Conversion**: Standard MIDI note numbers converted to precise frequencies
+- **Frequency Conversion**: Standard MIDI note numbers converted to precise
+  frequencies
 
 ### Setup
+
 1. Connect USB MIDI keyboard before starting the app
 2. Browser will request MIDI access permission (one-time)
 3. Play notes on keyboard - they'll be processed through the room analysis system

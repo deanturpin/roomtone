@@ -81,19 +81,7 @@
 
     </div>
 
-    <script src="version.js"></script>
     <script src="app.js"></script>
     <script src="auto-refresh.js"></script>
-    <script>
-        const versionElement = document.getElementById('version');
-        const link = document.createElement('a');
-        link.href = `https://github.com/deanturpin/roomtone/commit/${GIT_VERSION}`;
-        link.textContent = `${GIT_VERSION}: ${GIT_SUMMARY}`;
-        link.target = '_blank';
-        link.style.color = 'inherit';
-        link.style.textDecoration = 'none';
-        link.title = 'View commit on GitHub';
-        versionElement.appendChild(link);
-    </script>
 </body>
 </html>

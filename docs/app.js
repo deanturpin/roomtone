@@ -16,6 +16,9 @@ class RoomtoneAnalyser {
 
         this.toggleBtn = document.getElementById('toggleBtn');
         this.feedbackCheckbox = document.getElementById('feedbackMode');
+        this.thirdsModeCheckbox = document.getElementById('thirdsMode');
+        this.fifthsModeCheckbox = document.getElementById('fifthsMode');
+        this.octaveModeCheckbox = document.getElementById('octaveMode');
         this.ambienceCheckbox = document.getElementById('ambienceMode');
         this.piano = document.getElementById('piano');
         this.activePianoTones = new Map();
@@ -39,6 +42,11 @@ class RoomtoneAnalyser {
 
         // Audio feedback control
         this.audioFeedbackEnabled = true;
+
+        // Harmonic mode controls
+        this.thirdsEnabled = false;
+        this.fifthsEnabled = true;
+        this.octaveEnabled = false;
 
 
         // Room mode detection
@@ -246,6 +254,33 @@ class RoomtoneAnalyser {
             });
             // Initialize feedback state from checkbox
             this.audioFeedbackEnabled = this.feedbackCheckbox.checked;
+        }
+
+        // Bind thirds mode checkbox
+        if (this.thirdsModeCheckbox) {
+            this.thirdsModeCheckbox.addEventListener('change', (e) => {
+                this.thirdsEnabled = e.target.checked;
+                console.log('Thirds:', this.thirdsEnabled ? 'ON' : 'OFF');
+            });
+            this.thirdsEnabled = this.thirdsModeCheckbox.checked;
+        }
+
+        // Bind fifths mode checkbox
+        if (this.fifthsModeCheckbox) {
+            this.fifthsModeCheckbox.addEventListener('change', (e) => {
+                this.fifthsEnabled = e.target.checked;
+                console.log('Fifths:', this.fifthsEnabled ? 'ON' : 'OFF');
+            });
+            this.fifthsEnabled = this.fifthsModeCheckbox.checked;
+        }
+
+        // Bind octave mode checkbox
+        if (this.octaveModeCheckbox) {
+            this.octaveModeCheckbox.addEventListener('change', (e) => {
+                this.octaveEnabled = e.target.checked;
+                console.log('Octave:', this.octaveEnabled ? 'ON' : 'OFF');
+            });
+            this.octaveEnabled = this.octaveModeCheckbox.checked;
         }
 
 
@@ -1043,13 +1078,25 @@ class RoomtoneAnalyser {
             if (this.audioFeedbackEnabled && prominentPeaks.length > 1 && tonePeak.value > this.thresholdValue * 1.2) {
                 const secondPeak = prominentPeaks[1];
 
-                // Harmonic mode: play major third or perfect fifth above
+                // Harmonic mode: build harmonic options based on toggles
                 const baseFreq = secondPeak.freq;
-                // Simple upper harmonics for clean, melodious sound
-                const harmonics = [
-                    1.25,  // Major third above (5:4)
-                    1.5    // Perfect fifth above (3:2)
-                ];
+                const harmonics = [];
+
+                // Add harmonics based on enabled toggles
+                if (this.thirdsEnabled) {
+                    harmonics.push(1.25);   // Major third above (5:4)
+                }
+                if (this.fifthsEnabled) {
+                    harmonics.push(1.5);    // Perfect fifth above (3:2)
+                }
+                if (this.octaveEnabled) {
+                    harmonics.push(2.0);    // Octave above
+                }
+
+                // If no harmonics enabled, default to nothing (silent)
+                if (harmonics.length === 0) {
+                    return; // No harmonic generation
+                }
 
                 // Find a harmonic that doesn't collide with existing peaks
                 const minFreqRatio = 1.05; // Minimum 5% frequency difference to avoid collision

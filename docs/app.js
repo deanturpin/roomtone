@@ -16,7 +16,6 @@ class RoomtoneAnalyser {
 
         this.toggleBtn = document.getElementById('toggleBtn');
         this.feedbackCheckbox = document.getElementById('feedbackMode');
-        this.chromaticModeCheckbox = document.getElementById('chromaticModeFFT');
         this.ambienceCheckbox = document.getElementById('ambienceMode');
         this.piano = document.getElementById('piano');
         this.activePianoTones = new Map();
@@ -41,8 +40,6 @@ class RoomtoneAnalyser {
         // Audio feedback control
         this.audioFeedbackEnabled = true;
 
-        // Chromatic mode (false = harmonic thirds/fifths only, true = chromatic second peak)
-        this.chromaticMode = false;
 
         // Room mode detection
         this.frequencyHistory = new Map();
@@ -251,13 +248,6 @@ class RoomtoneAnalyser {
             this.audioFeedbackEnabled = this.feedbackCheckbox.checked;
         }
 
-        // Bind chromatic mode checkbox
-        if (this.chromaticModeCheckbox) {
-            this.chromaticModeCheckbox.addEventListener('change', (e) => {
-                this.chromaticMode = e.target.checked;
-                console.log('Spooky mode:', this.chromaticMode ? 'ON' : 'OFF');
-            });
-        }
 
         // Bind ambience checkbox
         if (this.ambienceCheckbox) {
@@ -1053,47 +1043,42 @@ class RoomtoneAnalyser {
             if (this.audioFeedbackEnabled && prominentPeaks.length > 1 && tonePeak.value > this.thresholdValue * 1.2) {
                 const secondPeak = prominentPeaks[1];
 
-                if (this.chromaticMode) {
-                    // Chromatic mode: play the second peak directly
-                    this.playPeakTone(secondPeak.freq, secondPeak.value);
-                } else {
-                    // Harmonic mode: play major third or perfect fifth above
-                    const baseFreq = secondPeak.freq;
-                    // Simple upper harmonics for clean, melodious sound
-                    const harmonics = [
-                        1.25,  // Major third above (5:4)
-                        1.5    // Perfect fifth above (3:2)
-                    ];
+                // Harmonic mode: play major third or perfect fifth above
+                const baseFreq = secondPeak.freq;
+                // Simple upper harmonics for clean, melodious sound
+                const harmonics = [
+                    1.25,  // Major third above (5:4)
+                    1.5    // Perfect fifth above (3:2)
+                ];
 
-                    // Find a harmonic that doesn't collide with existing peaks
-                    const minFreqRatio = 1.05; // Minimum 5% frequency difference to avoid collision
-                    let selectedHarmonic = null;
+                // Find a harmonic that doesn't collide with existing peaks
+                const minFreqRatio = 1.05; // Minimum 5% frequency difference to avoid collision
+                let selectedHarmonic = null;
 
-                    // Try each harmonic in random order
-                    const shuffledHarmonics = [...harmonics].sort(() => Math.random() - 0.5);
-                    for (const multiplier of shuffledHarmonics) {
-                        const candidateFreq = baseFreq * multiplier;
+                // Try each harmonic in random order
+                const shuffledHarmonics = [...harmonics].sort(() => Math.random() - 0.5);
+                for (const multiplier of shuffledHarmonics) {
+                    const candidateFreq = baseFreq * multiplier;
 
-                        // Check if this frequency is too close to any existing peak
-                        let tooClose = false;
-                        for (const peak of prominentPeaks) {
-                            const ratio = Math.max(candidateFreq / peak.freq, peak.freq / candidateFreq);
-                            if (ratio < minFreqRatio) {
-                                tooClose = true;
-                                break;
-                            }
-                        }
-
-                        if (!tooClose && candidateFreq > 50 && candidateFreq < 2000) {
-                            selectedHarmonic = candidateFreq;
+                    // Check if this frequency is too close to any existing peak
+                    let tooClose = false;
+                    for (const peak of prominentPeaks) {
+                        const ratio = Math.max(candidateFreq / peak.freq, peak.freq / candidateFreq);
+                        if (ratio < minFreqRatio) {
+                            tooClose = true;
                             break;
                         }
                     }
 
-                    // Play the selected harmonic if one was found
-                    if (selectedHarmonic) {
-                        this.playPeakTone(selectedHarmonic, secondPeak.value);
+                    if (!tooClose && candidateFreq > 50 && candidateFreq < 2000) {
+                        selectedHarmonic = candidateFreq;
+                        break;
                     }
+                }
+
+                // Play the selected harmonic if one was found
+                if (selectedHarmonic) {
+                    this.playPeakTone(selectedHarmonic, secondPeak.value);
                 }
 
                 // Start background recording for reversed audio when peaks are strong

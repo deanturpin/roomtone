@@ -207,14 +207,11 @@ button:disabled {
 }
 
 .piano-key.black {
-    width: 20px;
-    height: 35px;
+    width: 14px;
+    height: 60px;
     background: #222;
     border: 1px solid #111;
     color: #fff;
-    position: absolute;
-    top: 0;
-    right: -10px;
     z-index: 2;
 }
 

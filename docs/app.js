@@ -1035,11 +1035,35 @@ class RoomtoneAnalyser {
                         1.25,  // Major third above (5:4)
                         1.5    // Perfect fifth above (3:2)
                     ];
-                    const harmonicMultiplier = harmonics[Math.floor(Math.random() * harmonics.length)];
-                    const harmonicFreq = baseFreq * harmonicMultiplier;
-                    // Only play if in reasonable frequency range (50-2000 Hz)
-                    if (harmonicFreq > 50 && harmonicFreq < 2000) {
-                        this.playPeakTone(harmonicFreq, secondPeak.value);
+
+                    // Find a harmonic that doesn't collide with existing peaks
+                    const minFreqRatio = 1.05; // Minimum 5% frequency difference to avoid collision
+                    let selectedHarmonic = null;
+
+                    // Try each harmonic in random order
+                    const shuffledHarmonics = [...harmonics].sort(() => Math.random() - 0.5);
+                    for (const multiplier of shuffledHarmonics) {
+                        const candidateFreq = baseFreq * multiplier;
+
+                        // Check if this frequency is too close to any existing peak
+                        let tooClose = false;
+                        for (const peak of prominentPeaks) {
+                            const ratio = Math.max(candidateFreq / peak.freq, peak.freq / candidateFreq);
+                            if (ratio < minFreqRatio) {
+                                tooClose = true;
+                                break;
+                            }
+                        }
+
+                        if (!tooClose && candidateFreq > 50 && candidateFreq < 2000) {
+                            selectedHarmonic = candidateFreq;
+                            break;
+                        }
+                    }
+
+                    // Play the selected harmonic if one was found
+                    if (selectedHarmonic) {
+                        this.playPeakTone(selectedHarmonic, secondPeak.value);
                     }
                 }
 

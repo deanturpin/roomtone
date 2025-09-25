@@ -288,24 +288,53 @@ class RoomtoneAnalyser {
             key.addEventListener('mousedown', (e) => {
                 const freq = parseFloat(e.target.dataset.freq);
                 this.playPianoTone(freq);
+                this.currentPianoKey = freq; // Track current key
             });
 
             key.addEventListener('mouseup', (e) => {
                 const freq = parseFloat(e.target.dataset.freq);
                 this.stopPianoTone(freq);
+                this.currentPianoKey = null;
+            });
+
+            key.addEventListener('mouseleave', (e) => {
+                // Stop tone if mouse leaves while pressed
+                const freq = parseFloat(e.target.dataset.freq);
+                if (this.activePianoTones.has(freq)) {
+                    this.stopPianoTone(freq);
+                }
             });
 
             key.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 const freq = parseFloat(e.target.dataset.freq);
                 this.playPianoTone(freq);
+                this.currentPianoKey = freq;
             });
 
             key.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 const freq = parseFloat(e.target.dataset.freq);
                 this.stopPianoTone(freq);
+                this.currentPianoKey = null;
             });
+        });
+
+        // Global cleanup handlers to prevent stuck keys
+        document.addEventListener('mouseup', () => {
+            // Stop all active piano tones when mouse is released anywhere
+            if (this.currentPianoKey) {
+                this.stopPianoTone(this.currentPianoKey);
+                this.currentPianoKey = null;
+            }
+        });
+
+        document.addEventListener('touchend', () => {
+            // Stop all active piano tones when touch ends anywhere
+            if (this.currentPianoKey) {
+                this.stopPianoTone(this.currentPianoKey);
+                this.currentPianoKey = null;
+            }
         });
     }
 

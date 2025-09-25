@@ -244,6 +244,18 @@ class RoomtoneAnalyser {
             }
         });
 
+        // Canvas tap/click to toggle feedback
+        this.spectrumCanvas.addEventListener('click', () => {
+            if (this.isRunning && this.feedbackCheckbox) {
+                this.feedbackCheckbox.checked = !this.feedbackCheckbox.checked;
+                this.audioFeedbackEnabled = this.feedbackCheckbox.checked;
+                console.log('Canvas tap - Feedback:', this.audioFeedbackEnabled ? 'ON' : 'OFF');
+                if (!this.audioFeedbackEnabled) {
+                    this.stopAllToneGeneration();
+                }
+            }
+        });
+
         // Bind feedback checkbox
         if (this.feedbackCheckbox) {
             this.feedbackCheckbox.addEventListener('change', (e) => {

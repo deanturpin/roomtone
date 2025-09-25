@@ -11,7 +11,7 @@ help:
 
 serve: update-version
 	@echo "Starting local server at http://localhost:9001"
-	@cd docs/latest && python3 -m http.server 9001
+	@cd docs && python3 -m http.server 9001
 
 update-version:
 	@echo "const GIT_VERSION = '$$(git rev-parse --short HEAD)';" > docs/version.js
@@ -68,14 +68,5 @@ tag: stats
 	echo "Tagged $$VERSION. Run 'make update-stable' to update stable release." && \
 	$(MAKE) update-stable
 
-deploy: lint update-version sync-to-root
+deploy: lint update-version
 	git add -A && git commit -m "Auto-commit from make deploy 🤖" && git push
-
-sync-to-root:
-	@echo "Syncing latest app to root for live site..."
-	@cp docs/latest/index.html docs/index.html
-	@cp docs/latest/app.js docs/app.js
-	@cp docs/latest/style.css docs/style.css
-	@cp docs/latest/version.js docs/version.js
-	@cp docs/latest/favicon.svg docs/favicon.svg
-	@cp docs/latest/auto-refresh.js docs/auto-refresh.js

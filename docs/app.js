@@ -43,6 +43,7 @@ class RoomtoneAnalyser {
         // Audio feedback control
         this.audioFeedbackEnabled = true;
 
+
         // Harmonic mode controls
         this.thirdsEnabled = false;
         this.fifthsEnabled = true;
@@ -841,6 +842,48 @@ class RoomtoneAnalyser {
         keyElement.style.transform = '';
     }
 
+    // Snap frequency to nearest C major scale note
+    snapToScale(frequency) {
+        // C major scale frequencies (C4 = 261.63 Hz as reference)
+        const C4 = 261.63;
+        const scaleRatios = [1.0, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8]; // C, D, E, F, G, A, B
+        const scaleNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+
+        // Find the octave that contains this frequency
+        let octave = 4;
+        let baseFreq = C4;
+
+        // Go up octaves if frequency is too high
+        while (frequency > baseFreq * 2) {
+            baseFreq *= 2;
+            octave++;
+        }
+
+        // Go down octaves if frequency is too low
+        while (frequency < baseFreq) {
+            baseFreq /= 2;
+            octave--;
+        }
+
+        // Find closest note in this octave
+        let closestFreq = baseFreq;
+        let closestNote = 'C';
+        let minDistance = Math.abs(frequency - baseFreq);
+
+        for (let i = 0; i < scaleRatios.length; i++) {
+            const noteFreq = baseFreq * scaleRatios[i];
+            const distance = Math.abs(frequency - noteFreq);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestFreq = noteFreq;
+                closestNote = scaleNames[i];
+            }
+        }
+
+        console.log(`Snapped ${frequency.toFixed(1)}Hz to ${closestNote}${octave} (${closestFreq.toFixed(1)}Hz)`);
+        return closestFreq;
+    }
+
     draw() {
         if (!this.isRunning) return;
 
@@ -1078,8 +1121,8 @@ class RoomtoneAnalyser {
             if (this.audioFeedbackEnabled && prominentPeaks.length > 1 && tonePeak.value > this.thresholdValue * 1.2) {
                 const secondPeak = prominentPeaks[1];
 
-                // Harmonic mode: build harmonic options based on toggles
-                const baseFreq = secondPeak.freq;
+                // Harmonic mode: snap to C major scale then build harmonic options
+                const baseFreq = this.snapToScale(secondPeak.freq);
                 const harmonics = [];
 
                 // Add harmonics based on enabled toggles

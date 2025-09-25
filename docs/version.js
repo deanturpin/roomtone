@@ -1,2 +1,2 @@
-const GIT_VERSION = '91075c6';
-const GIT_SUMMARY = 'Auto-commit from make deploy 🤖';
+const GIT_VERSION = '3a69611';
+const GIT_SUMMARY = 'Add canvas click event to toggle audio feedback and update instructions in UI';

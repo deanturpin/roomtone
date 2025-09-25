@@ -53,28 +53,28 @@
 
         <!-- Piano keyboard below FFT display -->
         <div id="piano" style="position: fixed; bottom: 0; left: 0; right: 0; display: none; background: rgba(0,0,0,0.9); padding: 10px; text-align: center; z-index: 1500;">
-                    <div style="position: relative; display: inline-flex; gap: 1px;">
-                        <!-- White keys -->
-                        <button class="piano-key white" data-freq="261.63" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
-                        <button class="piano-key white" data-freq="293.66" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
-                        <button class="piano-key white" data-freq="329.63" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
-                        <button class="piano-key white" data-freq="349.23" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
-                        <button class="piano-key white" data-freq="392.00" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
-                        <button class="piano-key white" data-freq="440.00" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
-                        <button class="piano-key white" data-freq="493.88" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
-                        <button class="piano-key white" data-freq="523.25" style="width: 30px; height: 80px; background: white; border: 1px solid #333; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 1;"></button>
+                    <div style="position: relative; display: inline-flex; gap: 2px;">
+                        <!-- White keys (C D E F G A B C) -->
+                        <button class="piano-key white" data-freq="261.63" style="width: 40px; height: 120px; background: white; border: 1px solid #333; border-radius: 0 0 4px 4px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="293.66" style="width: 40px; height: 120px; background: white; border: 1px solid #333; border-radius: 0 0 4px 4px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="329.63" style="width: 40px; height: 120px; background: white; border: 1px solid #333; border-radius: 0 0 4px 4px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="349.23" style="width: 40px; height: 120px; background: white; border: 1px solid #333; border-radius: 0 0 4px 4px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="392.00" style="width: 40px; height: 120px; background: white; border: 1px solid #333; border-radius: 0 0 4px 4px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="440.00" style="width: 40px; height: 120px; background: white; border: 1px solid #333; border-radius: 0 0 4px 4px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="493.88" style="width: 40px; height: 120px; background: white; border: 1px solid #333; border-radius: 0 0 4px 4px; cursor: pointer; z-index: 1;"></button>
+                        <button class="piano-key white" data-freq="523.25" style="width: 40px; height: 120px; background: white; border: 1px solid #333; border-radius: 0 0 4px 4px; cursor: pointer; z-index: 1;"></button>
 
-                        <!-- Black keys positioned absolutely - correct piano layout -->
+                        <!-- Black keys positioned in the gaps between white keys -->
                         <!-- C# between C and D -->
-                        <button class="piano-key black" data-freq="277.18" style="position: absolute; left: 21px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="277.18" style="position: absolute; left: 30px; width: 24px; height: 70px; background: #1a1a1a; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
                         <!-- D# between D and E -->
-                        <button class="piano-key black" data-freq="311.13" style="position: absolute; left: 52px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="311.13" style="position: absolute; left: 72px; width: 24px; height: 70px; background: #1a1a1a; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
                         <!-- F# between F and G (no black key between E-F) -->
-                        <button class="piano-key black" data-freq="369.99" style="position: absolute; left: 114px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="369.99" style="position: absolute; left: 156px; width: 24px; height: 70px; background: #1a1a1a; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
                         <!-- G# between G and A -->
-                        <button class="piano-key black" data-freq="415.30" style="position: absolute; left: 145px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="415.30" style="position: absolute; left: 198px; width: 24px; height: 70px; background: #1a1a1a; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
                         <!-- A# between A and B -->
-                        <button class="piano-key black" data-freq="466.16" style="position: absolute; left: 176px; width: 20px; height: 50px; background: #222; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
+                        <button class="piano-key black" data-freq="466.16" style="position: absolute; left: 240px; width: 24px; height: 70px; background: #1a1a1a; border: 1px solid #000; border-radius: 0 0 3px 3px; cursor: pointer; z-index: 2;"></button>
                     </div>
         </div>
 

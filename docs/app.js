@@ -578,7 +578,7 @@ class RoomtoneAnalyser {
 
             // Show the piano keyboard
             if (this.piano) {
-                this.piano.style.display = 'block';
+                // Piano hidden
             }
 
 

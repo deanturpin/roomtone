@@ -843,11 +843,24 @@ class RoomtoneAnalyser {
         keyElement.style.transform = '';
     }
 
-    // Snap frequency to nearest C major scale note
+    // Snap frequency to nearest C major scale note using Vallotti temperament
     snapToScale(frequency) {
         // C major scale frequencies (C4 = 261.63 Hz as reference)
+        // Vallotti temperament - cent deviations from equal temperament
         const C4 = 261.63;
-        const scaleRatios = [1.0, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8]; // C, D, E, F, G, A, B
+
+        // Vallotti temperament ratios (semitone deviations from equal temperament in cents converted to frequency ratios)
+        // C=0, D=-5.87, E=-7.82, F=+1.96, G=-1.96, A=-9.78, B=-3.91 cents
+        const vallottiCents = [0, -5.87, -7.82, +1.96, -1.96, -9.78, -3.91]; // C, D, E, F, G, A, B
+        const scaleRatios = [
+            1.0,                                    // C (0 cents)
+            Math.pow(2, (2*100 + vallottiCents[1])/1200),   // D (2 semitones - 5.87 cents)
+            Math.pow(2, (4*100 + vallottiCents[2])/1200),   // E (4 semitones - 7.82 cents)
+            Math.pow(2, (5*100 + vallottiCents[3])/1200),   // F (5 semitones + 1.96 cents)
+            Math.pow(2, (7*100 + vallottiCents[4])/1200),   // G (7 semitones - 1.96 cents)
+            Math.pow(2, (9*100 + vallottiCents[5])/1200),   // A (9 semitones - 9.78 cents)
+            Math.pow(2, (11*100 + vallottiCents[6])/1200)   // B (11 semitones - 3.91 cents)
+        ];
         const scaleNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
         // Find the octave that contains this frequency
